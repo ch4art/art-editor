@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { generateThumbnailGif } from './thumb';
 import { optimizeGlb, formatBytes } from './optimize';
 
@@ -68,6 +68,15 @@ export default function WorkForm({ edit, onDone }: { edit?: EditWork; onDone?: (
   const [result, setResult] = useState<{ url: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sizeInfo, setSizeInfo] = useState<{ before: number; after: number } | null>(null);
+  const [waitSec, setWaitSec] = useState(0);
+
+  // 等部署時數秒,讓等待有感覺
+  useEffect(() => {
+    if (phase !== 'deploying') return;
+    setWaitSec(0);
+    const t = setInterval(() => setWaitSec((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [phase]);
 
   async function runOptimize(args: RunArgs): Promise<Uint8Array> {
     if (args.big) {
@@ -339,7 +348,10 @@ export default function WorkForm({ edit, onDone }: { edit?: EditWork; onDone?: (
         )}
       </button>
       {phase === 'deploying' && (
-        <p className="hint">上傳完成!正在等網站蓋好新頁面,好了會直接告訴你~</p>
+        <p className="hint">
+          上傳完成!網站要整個重新蓋一次,<b>大約 1~2 分鐘</b>
+          (跟作品大小沒關係)~已經等了 {waitSec} 秒,好了會直接告訴你!
+        </p>
       )}
     </main>
   );

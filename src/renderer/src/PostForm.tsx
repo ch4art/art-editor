@@ -123,6 +123,7 @@ export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: (
   const [modelBusy, setModelBusy] = useState(false);
   const [imgBusy, setImgBusy] = useState(false);
   const [restored, setRestored] = useState(false);
+  const [waitSec, setWaitSec] = useState(0);
   const editorRef = useRef<RichEditorHandle>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLInputElement>(null);
@@ -224,6 +225,14 @@ export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: (
       }
     })();
   }, []);
+
+  // ---------- 等部署時數秒,讓等待有感覺 ----------
+  useEffect(() => {
+    if (status !== 'deploying') return;
+    setWaitSec(0);
+    const t = setInterval(() => setWaitSec((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [status]);
 
   // ---------- 草稿:自動儲存(800ms 防抖;編輯模式不儲存) ----------
   useEffect(() => {
@@ -498,7 +507,10 @@ export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: (
             )}
           </button>
           {status === 'deploying' && (
-            <p className="hint">上傳完成!正在等網站蓋好新頁面,好了會直接告訴你~</p>
+            <p className="hint">
+              上傳完成!網站要整個重新蓋一次,<b>大約 1~2 分鐘</b>
+              (跟文章長短沒關係)~已經等了 {waitSec} 秒,好了會直接告訴你!
+            </p>
           )}
         </aside>
       </div>
