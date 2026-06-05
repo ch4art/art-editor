@@ -243,6 +243,16 @@ body {
   border-color: var(--outline);
 }
 
+.toolbar .tb-img {
+  background: var(--butter);
+  border-color: var(--outline);
+}
+
+.toolbar .tb-img:hover {
+  background: var(--bubblegum);
+  color: #fff;
+}
+
 .toolbar .tb-3d:hover {
   background: var(--bubblegum);
   color: #fff;
@@ -535,4 +545,83 @@ input[type='file'] {
     transform: translate(-50%, -50%) translate(var(--dx), var(--dy)) scale(0.2);
     opacity: 0;
   }
+}
+
+/* ---------- 管理已發布內容 ---------- */
+.form.manage {
+  max-width: 760px;
+}
+
+.managesec h3 {
+  color: var(--bubblegum-deep);
+  margin: 14px 0 8px;
+}
+
+.managelist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.managelist li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #fff;
+  border: 3px solid var(--outline);
+  border-radius: 18px;
+  padding: 10px 14px;
+  box-shadow: 0 4px 0 0 rgba(58, 46, 69, 0.12);
+}
+
+.mg-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mg-title {
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mg-slug {
+  font-size: 0.75rem;
+  opacity: 0.55;
+}
+
+.mg-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.mini {
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--ink);
+  background: var(--butter, #ffe5a0);
+  border: 3px solid var(--outline);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
+.mini.edit {
+  background: var(--skyberry, #a7d8ff);
+}
+
+.mini.danger {
+  background: #ffc9d6;
+}
+
+.mini:disabled {
+  opacity: 0.5;
 }

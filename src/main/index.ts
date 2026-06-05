@@ -10,7 +10,8 @@ import {
   sanitizeSlug,
   type WorkInput,
 } from './content';
-import { commitFiles } from './publish';
+import { commitFiles, type CommitFile } from './publish';
+import { listContent, getContentText, getContentBase64, deleteContent } from './manage';
 import { gltfpackOptimize } from './gltfpack';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -119,18 +120,34 @@ ipcMain.handle(
 
 ipcMain.handle(
   'publish:post',
-  async (_e, post: BlogPostInput & { models?: { filename: string; base64: string }[] }) => {
+  async (
+    _e,
+    post: BlogPostInput & {
+      models?: { filename: string; base64: string }[];
+      images?: { filename: string; base64: string }[];
+      /** Set when editing — overwrite this file instead of creating a new one. */
+      existingPath?: string;
+    },
+  ) => {
     const token = gh.loadToken();
     if (!token) throw new Error('尚未登入');
-    const { slug, mdx } = buildBlogPost(post);
-    const path = `src/content/blog/${slug}.mdx`;
-    const files: { path: string; content: string; encoding: 'utf-8' | 'base64' }[] = [
-      { path, content: mdx, encoding: 'utf-8' },
-    ];
+    const { slug: newSlug, mdx } = buildBlogPost(post);
+    const slug = post.existingPath
+      ? post.existingPath.replace(/^.*\//, '').replace(/\.(md|mdx)$/i, '')
+      : newSlug;
+    const path = post.existingPath ?? `src/content/blog/${slug}.mdx`;
+    const files: CommitFile[] = [{ path, content: mdx, encoding: 'utf-8' }];
     for (const m of post.models ?? []) {
       files.push({ path: `public/models/${m.filename}`, content: m.base64, encoding: 'base64' });
     }
-    await commitFiles(token, files, `文章:${post.title}`);
+    for (const img of post.images ?? []) {
+      files.push({
+        path: `src/content/blog/images/${img.filename}`,
+        content: img.base64,
+        encoding: 'base64',
+      });
+    }
+    await commitFiles(token, files, `${post.existingPath ? '更新文章' : '文章'}:${post.title}`);
     return { slug, path, url: `https://${gh.REPO.owner}.github.io/blog/${slug}/` };
   },
 );
@@ -139,22 +156,60 @@ ipcMain.handle(
   'publish:work',
   async (
     _e,
-    work: WorkInput & { modelFilename: string; modelBase64: string; gifBase64: string },
+    work: WorkInput & {
+      modelFilename?: string;
+      modelBase64?: string;
+      gifBase64?: string;
+      /** Set when editing — overwrite this slug instead of creating a new one. */
+      existingSlug?: string;
+      /** Edit without re-uploading the model/GIF (text-only change). */
+      keepAssets?: boolean;
+    },
   ) => {
     const token = gh.loadToken();
     if (!token) throw new Error('尚未登入');
-    const slug = sanitizeSlug(work.modelFilename);
+    const slug = work.existingSlug ?? sanitizeSlug(work.modelFilename ?? '');
     const md = buildWork(work, slug);
-    await commitFiles(
-      token,
-      [
+    const files: CommitFile[] = [];
+    if (!work.keepAssets) {
+      if (!work.modelBase64 || !work.gifBase64) throw new Error('缺少模型或縮圖');
+      files.push(
         { path: `public/models/${slug}.glb`, content: work.modelBase64, encoding: 'base64' },
         { path: `public/works/${slug}.gif`, content: work.gifBase64, encoding: 'base64' },
-        { path: `src/content/works/${slug}.md`, content: md, encoding: 'utf-8' },
-      ],
-      `作品:${work.title}`,
-    );
+      );
+    }
+    files.push({ path: `src/content/works/${slug}.md`, content: md, encoding: 'utf-8' });
+    await commitFiles(token, files, `${work.existingSlug ? '更新作品' : '作品'}:${work.title}`);
     return { slug, url: `https://${gh.REPO.owner}.github.io/portfolio/${slug}/` };
+  },
+);
+
+// ---------- published-content management (list / read / delete) ----------
+ipcMain.handle('content:list', async () => {
+  const token = gh.loadToken();
+  if (!token) throw new Error('尚未登入');
+  return listContent(token);
+});
+
+ipcMain.handle('content:getText', async (_e, path: string) => {
+  const token = gh.loadToken();
+  if (!token) throw new Error('尚未登入');
+  return getContentText(token, path);
+});
+
+ipcMain.handle('content:getBinary', async (_e, path: string) => {
+  const token = gh.loadToken();
+  if (!token) throw new Error('尚未登入');
+  return getContentBase64(token, path);
+});
+
+ipcMain.handle(
+  'content:delete',
+  async (_e, item: { kind: 'post' | 'work'; path: string; title: string }) => {
+    const token = gh.loadToken();
+    if (!token) throw new Error('尚未登入');
+    await deleteContent(token, item);
+    return true;
   },
 );
 

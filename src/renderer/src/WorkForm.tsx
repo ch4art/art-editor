@@ -37,18 +37,29 @@ function fromBase64(b64: string): Uint8Array {
 
 type RunArgs = { big: boolean; path: string; buf: ArrayBuffer | null; ratio: number };
 
-export default function WorkForm() {
+/** Prefilled values when editing a published work (from the manage tab). */
+export type EditWork = {
+  slug: string;
+  title: string;
+  desc: string;
+  env: string;
+  tags: string; // comma-joined
+  order?: number;
+  gifUrl: string | null; // existing thumbnail, for display
+};
+
+export default function WorkForm({ edit, onDone }: { edit?: EditWork; onDone?: () => void }) {
   const [filename, setFilename] = useState('');
   const [filePath, setFilePath] = useState('');
   const [isBig, setIsBig] = useState(false);
   const [origBuf, setOrigBuf] = useState<ArrayBuffer | null>(null);
   const [modelBytes, setModelBytes] = useState<Uint8Array | null>(null);
   const [gifBytes, setGifBytes] = useState<Uint8Array | null>(null);
-  const [gifUrl, setGifUrl] = useState<string | null>(null);
-  const [title, setTitle] = useState('');
-  const [desc, setDesc] = useState('');
-  const [env, setEnv] = useState('city');
-  const [tags, setTags] = useState('');
+  const [gifUrl, setGifUrl] = useState<string | null>(edit?.gifUrl ?? null);
+  const [title, setTitle] = useState(edit?.title ?? '');
+  const [desc, setDesc] = useState(edit?.desc ?? '');
+  const [env, setEnv] = useState(edit?.env ?? 'city');
+  const [tags, setTags] = useState(edit?.tags ?? '');
   const [simplify, setSimplify] = useState(1);
   const [phase, setPhase] = useState<'idle' | 'thumbing' | 'reopt' | 'publishing' | 'done' | 'error'>(
     'idle',
@@ -113,7 +124,8 @@ export default function WorkForm() {
   }
 
   async function publish() {
-    if (!modelBytes || !gifBytes) {
+    const hasNewModel = Boolean(modelBytes && gifBytes);
+    if (!edit && !hasNewModel) {
       setError('請先選一個 .glb 模型');
       return;
     }
@@ -134,9 +146,14 @@ export default function WorkForm() {
         environment: env,
         tags: tagList,
         body: '',
-        modelFilename: filename,
-        modelBase64: toBase64(modelBytes),
-        gifBase64: toBase64(gifBytes),
+        ...(hasNewModel
+          ? {
+              modelFilename: filename,
+              modelBase64: toBase64(modelBytes!),
+              gifBase64: toBase64(gifBytes!),
+            }
+          : {}),
+        ...(edit ? { existingSlug: edit.slug, keepAssets: !hasNewModel, order: edit.order } : {}),
       });
       setResult(res);
       setPhase('done');
@@ -169,15 +186,21 @@ export default function WorkForm() {
     return (
       <div className="form">
         <div className="card center">
-          <h1>🎉 作品發布成功!</h1>
-          <p>已加到作品集,網站大約 1–2 分鐘後會自動更新。</p>
+          <h1>{edit ? '✨ 作品更新成功!' : '🎉 作品發布成功!'}</h1>
+          <p>{edit ? '修改已送出' : '已加到作品集'},網站大約 1–2 分鐘後會自動更新。</p>
           <div className="btnrow">
             <button className="btn" onClick={() => window.api.openExternal(result.url)}>
               看作品
             </button>
-            <button className="btn ghost" onClick={reset}>
-              再加一個
-            </button>
+            {edit && onDone ? (
+              <button className="btn ghost" onClick={onDone}>
+                回管理列表
+              </button>
+            ) : (
+              <button className="btn ghost" onClick={reset}>
+                再加一個
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -188,10 +211,20 @@ export default function WorkForm() {
 
   return (
     <main className="form">
-      <h2>加一個 3D 作品 🎨</h2>
+      <h2>{edit ? '編輯作品 ✏️' : '加一個 3D 作品 🎨'}</h2>
+      {edit && (
+        <p className="hint">
+          正在編輯已發布的作品,按「儲存修改」會直接覆蓋網站上的版本。
+          {onDone && (
+            <button className="link" style={{ marginLeft: 8 }} onClick={onDone}>
+              ↩️ 取消,回列表
+            </button>
+          )}
+        </p>
+      )}
 
       <label className="filepick">
-        選擇模型檔(.glb)
+        {edit ? '換一個模型檔(.glb,不換就維持原本的)' : '選擇模型檔(.glb)'}
         <input type="file" accept=".glb,model/gltf-binary" onChange={onFile} />
       </label>
 
@@ -207,7 +240,9 @@ export default function WorkForm() {
       {gifUrl && (
         <div className="thumbprev">
           <img src={gifUrl} alt="縮圖預覽" width={220} height={220} />
-          <p className="hint">↑ 作品集會顯示的旋轉縮圖</p>
+          <p className="hint">
+            {edit && !gifBytes ? '↑ 目前網站上的旋轉縮圖' : '↑ 作品集會顯示的旋轉縮圖'}
+          </p>
         </div>
       )}
 
@@ -269,9 +304,15 @@ export default function WorkForm() {
       <button
         className="btn publish"
         onClick={publish}
-        disabled={busy || phase === 'publishing' || !gifBytes}
+        disabled={busy || phase === 'publishing' || (!edit && !gifBytes)}
       >
-        {phase === 'publishing' ? '發布中…請稍候' : '🚀 發布作品'}
+        {phase === 'publishing'
+          ? edit
+            ? '儲存中…請稍候'
+            : '發布中…請稍候'
+          : edit
+            ? '💾 儲存修改'
+            : '🚀 發布作品'}
       </button>
     </main>
   );

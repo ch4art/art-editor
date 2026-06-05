@@ -28,7 +28,11 @@ const api = {
 
   publish: {
     post: (
-      data: BlogPostInput & { models?: { filename: string; base64: string }[] },
+      data: BlogPostInput & {
+        models?: { filename: string; base64: string }[];
+        images?: { filename: string; base64: string }[];
+        existingPath?: string;
+      },
     ): Promise<{ slug: string; path: string; url: string }> =>
       ipcRenderer.invoke('publish:post', data),
     work: (data: {
@@ -37,10 +41,24 @@ const api = {
       environment: string;
       tags: string[];
       body: string;
-      modelFilename: string;
-      modelBase64: string;
-      gifBase64: string;
+      modelFilename?: string;
+      modelBase64?: string;
+      gifBase64?: string;
+      existingSlug?: string;
+      keepAssets?: boolean;
+      order?: number;
     }): Promise<{ slug: string; url: string }> => ipcRenderer.invoke('publish:work', data),
+  },
+
+  /** Published content on GitHub: list, read, delete (for the manage tab). */
+  content: {
+    list: (): Promise<
+      { kind: 'post' | 'work'; path: string; name: string; slug: string; title: string }[]
+    > => ipcRenderer.invoke('content:list'),
+    getText: (path: string): Promise<string> => ipcRenderer.invoke('content:getText', path),
+    getBinary: (path: string): Promise<string> => ipcRenderer.invoke('content:getBinary', path),
+    remove: (item: { kind: 'post' | 'work'; path: string; title: string }): Promise<boolean> =>
+      ipcRenderer.invoke('content:delete', item),
   },
 
   github: {

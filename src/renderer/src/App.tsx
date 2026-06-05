@@ -10,15 +10,17 @@ function useClickSparkles() {
     const COLORS = ['#FF9FCB', '#F2569E', '#9AD3FF', '#FFE27A', '#9B6DFF', '#5FE0DA'];
     const GLYPHS = ['✦', '✧', '●', '★'];
     const onDown = (e: PointerEvent) => {
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 12; i++) {
         const s = document.createElement('span');
         s.className = 'spark';
         s.textContent = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
         s.style.color = COLORS[Math.floor(Math.random() * COLORS.length)];
         s.style.left = `${e.clientX}px`;
         s.style.top = `${e.clientY}px`;
+        s.style.fontSize = `${12 + Math.random() * 10}px`;
+        s.style.animationDuration = `${0.5 + Math.random() * 0.4}s`;
         const ang = Math.random() * Math.PI * 2;
-        const dist = 24 + Math.random() * 30;
+        const dist = 30 + Math.random() * 55;
         s.style.setProperty('--dx', `${Math.cos(ang) * dist}px`);
         s.style.setProperty('--dy', `${Math.sin(ang) * dist}px`);
         s.addEventListener('animationend', () => s.remove());

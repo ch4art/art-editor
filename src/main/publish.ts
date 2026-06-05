@@ -2,7 +2,7 @@ import { REPO } from './github';
 
 const API = 'https://api.github.com';
 
-async function ghApi(
+export async function ghApi(
   token: string,
   path: string,
   init: RequestInit = {},
@@ -27,11 +27,13 @@ async function ghApi(
 export type CommitFile = {
   path: string;
   /** utf-8 text, or base64 string for binary files (.glb/.gif/images). */
-  content: string;
-  encoding: 'utf-8' | 'base64';
+  content?: string;
+  encoding?: 'utf-8' | 'base64';
+  /** true → delete this path instead of writing it. */
+  del?: boolean;
 };
 
-/** Commit one or more files atomically to the repo's default branch. */
+/** Commit one or more file writes/deletions atomically to the default branch. */
 export async function commitFiles(
   token: string,
   files: CommitFile[],
@@ -45,9 +47,13 @@ export async function commitFiles(
   const headCommit = await ghApi(token, `/repos/${owner}/${repo}/git/commits/${headSha}`);
   const baseTreeSha: string = headCommit.tree.sha;
 
-  // 2. Upload each file as a blob.
+  // 2. Upload blobs (deletions are tree entries with sha: null).
   const treeItems = [];
   for (const f of files) {
+    if (f.del) {
+      treeItems.push({ path: f.path, mode: '100644', type: 'blob', sha: null });
+      continue;
+    }
     const blob = await ghApi(token, `/repos/${owner}/${repo}/git/blobs`, {
       method: 'POST',
       body: JSON.stringify({ content: f.content, encoding: f.encoding }),

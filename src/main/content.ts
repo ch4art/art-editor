@@ -85,11 +85,14 @@ export type WorkInput = {
   environment: string;
   tags: string[];
   body: string;
+  /** Preserved when editing an existing work; defaults to today's date number. */
+  order?: number;
 };
 
 export function buildWork(work: WorkInput, slug: string): string {
   const now = new Date();
-  const order = Number(`${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`);
+  const order =
+    work.order ?? Number(`${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`);
   const tags = work.tags.length ? `[${work.tags.map((t) => yamlStr(t)).join(', ')}]` : '[]';
 
   return [
