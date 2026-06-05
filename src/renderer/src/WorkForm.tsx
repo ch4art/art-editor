@@ -157,9 +157,17 @@ export default function WorkForm({ edit, onDone }: { edit?: EditWork; onDone?: (
         ...(edit ? { existingSlug: edit.slug, keepAssets: !hasNewModel, order: edit.order } : {}),
       });
       setResult(res);
-      // 等網站真的部署完成,「看作品」按下去保證是新的
+      // 等網站真的部署完成,「看作品」按下去保證是新的。
+      // 上傳已經成功了 — 之後不管發生什麼,都不能再顯示「發布失敗」。
       setPhase('deploying');
-      const live = await window.api.publish.waitLive(res.sha);
+      let live = { ok: true, state: 'skipped' };
+      try {
+        if (typeof window.api.publish.waitLive === 'function') {
+          live = await window.api.publish.waitLive(res.sha);
+        }
+      } catch {
+        live = { ok: false, state: 'error' };
+      }
       setDoneNote(
         live.ok ? null : '網站這次更新得比平常慢,如果點開還沒看到,等一下再重新整理就好。',
       );
@@ -188,20 +196,6 @@ export default function WorkForm({ edit, onDone }: { edit?: EditWork; onDone?: (
     setResult(null);
     setError(null);
     setSizeInfo(null);
-  }
-
-  if (phase === 'deploying') {
-    return (
-      <div className="form">
-        <div className="card center">
-          <h1>
-            <span className="spin-egg">🐣</span> 網站更新中…
-          </h1>
-          <p>作品上傳好了,正在等網站蓋好新頁面(通常 1~2 分鐘)。</p>
-          <p className="hint">好了會直接告訴你,不用一直盯著~</p>
-        </div>
-      </div>
-    );
   }
 
   if (phase === 'done' && result) {
@@ -326,16 +320,27 @@ export default function WorkForm({ edit, onDone }: { edit?: EditWork; onDone?: (
       <button
         className="btn publish"
         onClick={publish}
-        disabled={busy || phase === 'publishing' || (!edit && !gifBytes)}
+        disabled={busy || phase === 'publishing' || phase === 'deploying' || (!edit && !gifBytes)}
       >
-        {phase === 'publishing'
-          ? edit
-            ? '儲存中…請稍候'
-            : '發布中…請稍候'
-          : edit
-            ? '💾 儲存修改'
-            : '🚀 發布作品'}
+        {phase === 'publishing' ? (
+          <>
+            <span className="btn-ring" />
+            {edit ? '儲存中…' : '上傳中…'}
+          </>
+        ) : phase === 'deploying' ? (
+          <>
+            <span className="btn-ring" />
+            🐣 網站更新中…
+          </>
+        ) : edit ? (
+          '💾 儲存修改'
+        ) : (
+          '🚀 發布作品'
+        )}
       </button>
+      {phase === 'deploying' && (
+        <p className="hint">上傳完成!正在等網站蓋好新頁面,好了會直接告訴你~</p>
+      )}
     </main>
   );
 }

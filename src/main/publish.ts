@@ -105,7 +105,7 @@ export async function waitForDeploy(
     } catch {
       /* transient network/API hiccup — keep polling */
     }
-    await new Promise((r) => setTimeout(r, 5000));
+    await new Promise((r) => setTimeout(r, 1000));
   }
   return { ok: false, state: 'timeout' };
 }

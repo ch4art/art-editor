@@ -513,20 +513,22 @@ body {
   color: #fff;
 }
 
-/* 發布後「網站更新中」的搖擺小雞 */
-.spin-egg {
+/* 發布鈕上的轉圈圈(上傳中 / 網站更新中) */
+.btn-ring {
   display: inline-block;
-  animation: egg-wobble 1s ease-in-out infinite;
-  transform-origin: 50% 80%;
+  width: 15px;
+  height: 15px;
+  margin-right: 9px;
+  vertical-align: -2px;
+  border: 3px solid rgba(58, 46, 69, 0.25);
+  border-top-color: var(--outline);
+  border-radius: 50%;
+  animation: ring-spin 0.7s linear infinite;
 }
 
-@keyframes egg-wobble {
-  0%,
-  100% {
-    transform: rotate(-12deg);
-  }
-  50% {
-    transform: rotate(12deg);
+@keyframes ring-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
