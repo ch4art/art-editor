@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react';
+import { marked } from 'marked';
 import { optimizeGlb } from './optimize';
+import { generateThumbnailGif } from './thumb';
 
 function today(): string {
   const d = new Date();
@@ -18,6 +20,63 @@ function toBase64(bytes: Uint8Array): string {
 
 type Attached = { filename: string; bytes: Uint8Array };
 
+const TOKEN_SPLIT = /(<<3D模型:\s*[^>]+?>>)/g;
+const TOKEN_MATCH = /<<3D模型:\s*([^>]+?)\s*>>/;
+
+function Preview({
+  title,
+  date,
+  tags,
+  body,
+  modelGifs,
+}: {
+  title: string;
+  date: string;
+  tags: string[];
+  body: string;
+  modelGifs: Record<string, string>;
+}) {
+  const parts = body.split(TOKEN_SPLIT);
+  return (
+    <div className="preview-pane">
+      <div className="pv-label">👀 即時預覽(發布後長這樣)</div>
+      <div>
+        <span className="pv-title">{title || '(文章標題)'}</span>
+      </div>
+      <div className="pv-date">{date.replaceAll('-', '/')}</div>
+      {tags.length > 0 && (
+        <div className="pv-tags">
+          {tags.map((t) => (
+            <span key={t}>#{t}</span>
+          ))}
+        </div>
+      )}
+      <div className="pv-body">
+        {parts.map((part, i) => {
+          const m = part.match(TOKEN_MATCH);
+          if (m) {
+            const file = m[1].trim();
+            const gif = modelGifs[file];
+            return gif ? (
+              <div key={i} className="pv-model">
+                <img src={gif} alt={file} width={220} height={220} />
+                <span>🧊 3D 模型(在網站上可以旋轉、縮放)</span>
+              </div>
+            ) : (
+              <div key={i} className="pv-model pv-model-empty">
+                🧊 3D 模型:{file}
+              </div>
+            );
+          }
+          if (!part.trim()) return null;
+          return <div key={i} dangerouslySetInnerHTML={{ __html: marked.parse(part) as string }} />;
+        })}
+        {!body.trim() && <p style={{ opacity: 0.45 }}>(開始打字,右邊就會即時顯示…)</p>}
+      </div>
+    </div>
+  );
+}
+
 export default function PostForm() {
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
@@ -25,12 +84,18 @@ export default function PostForm() {
   const [tags, setTags] = useState('');
   const [body, setBody] = useState('');
   const [models, setModels] = useState<Attached[]>([]);
+  const [modelGifs, setModelGifs] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<'idle' | 'publishing' | 'done' | 'error'>('idle');
   const [result, setResult] = useState<{ url: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [modelBusy, setModelBusy] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const tagList = tags
+    .split(/[,，、\s]+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
 
   function wrap(before: string, after = before) {
     const ta = bodyRef.current;
@@ -77,6 +142,17 @@ export default function PostForm() {
         ...prev.filter((m) => m.filename !== f.name),
         { filename: f.name, bytes: opt.bytes },
       ]);
+      // 預覽用的旋轉 GIF(跟網站上看到的效果一致)
+      try {
+        const gif = await generateThumbnailGif(new Uint8Array(opt.bytes).buffer, {
+          size: 220,
+          frames: 40,
+        });
+        const url = URL.createObjectURL(new Blob([gif], { type: 'image/gif' }));
+        setModelGifs((prev) => ({ ...prev, [f.name]: url }));
+      } catch {
+        /* 預覽 GIF 失敗就顯示占位框 */
+      }
       insertAtCursor(`\n<<3D模型: ${f.name}>>\n`);
     } finally {
       setModelBusy(false);
@@ -91,10 +167,6 @@ export default function PostForm() {
     setError(null);
     setStatus('publishing');
     try {
-      const tagList = tags
-        .split(/[,，、\s]+/)
-        .map((t) => t.trim())
-        .filter(Boolean);
       const res = await window.api.publish.post({
         title: title.trim(),
         description: desc.trim(),
@@ -118,6 +190,7 @@ export default function PostForm() {
     setTags('');
     setBody('');
     setModels([]);
+    setModelGifs({});
     setStatus('idle');
     setResult(null);
     setError(null);
@@ -143,81 +216,85 @@ export default function PostForm() {
   }
 
   return (
-    <main className="form">
-      <h2>寫一篇新文章 ✏️</h2>
+    <div className="postwrap">
+      <main className="form">
+        <h2>寫一篇新文章 ✏️</h2>
 
-      <label>
-        標題
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例如:我做了一隻貓" />
-      </label>
-
-      <label>
-        一句話介紹
-        <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="會顯示在文章列表(可留空)" />
-      </label>
-
-      <div className="row">
         <label>
-          日期
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        </label>
-        <label>
-          標籤
-          <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="用逗號分隔,如:日常, 貓咪" />
-        </label>
-      </div>
-
-      <label className="bodylabel">內文</label>
-      <div className="toolbar">
-        <button type="button" onClick={() => wrap('**')}>
-          粗體
-        </button>
-        <button type="button" onClick={() => wrap('*')}>
-          斜體
-        </button>
-        <button type="button" onClick={() => prefixLine('## ')}>
           標題
-        </button>
-        <button type="button" onClick={() => prefixLine('- ')}>
-          清單
-        </button>
-        <button type="button" onClick={() => prefixLine('> ')}>
-          引用
-        </button>
-        <button
-          type="button"
-          className="tb-3d"
-          onClick={() => fileRef.current?.click()}
-          disabled={modelBusy}
-        >
-          {modelBusy ? '⏳ 處理模型中…' : '🧊 插入 3D 模型'}
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".glb,model/gltf-binary"
-          style={{ display: 'none' }}
-          onChange={onModelFile}
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例如:我做了一隻貓" />
+        </label>
+
+        <label>
+          一句話介紹
+          <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="會顯示在文章列表(可留空)" />
+        </label>
+
+        <div className="row">
+          <label>
+            日期
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </label>
+          <label>
+            標籤
+            <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="用逗號分隔,如:日常, 貓咪" />
+          </label>
+        </div>
+
+        <label className="bodylabel">內文</label>
+        <div className="toolbar">
+          <button type="button" onClick={() => wrap('**')}>
+            粗體
+          </button>
+          <button type="button" onClick={() => wrap('*')}>
+            斜體
+          </button>
+          <button type="button" onClick={() => prefixLine('## ')}>
+            標題
+          </button>
+          <button type="button" onClick={() => prefixLine('- ')}>
+            清單
+          </button>
+          <button type="button" onClick={() => prefixLine('> ')}>
+            引用
+          </button>
+          <button
+            type="button"
+            className="tb-3d"
+            onClick={() => fileRef.current?.click()}
+            disabled={modelBusy}
+          >
+            {modelBusy ? '⏳ 處理模型中…' : '🧊 插入 3D 模型'}
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".glb,model/gltf-binary"
+            style={{ display: 'none' }}
+            onChange={onModelFile}
+          />
+        </div>
+        <textarea
+          ref={bodyRef}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          rows={16}
+          placeholder="開始打字…右邊會即時預覽。"
         />
-      </div>
-      <textarea
-        ref={bodyRef}
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        rows={14}
-        placeholder="開始打字…用上面的按鈕加粗體、標題、清單,或插入一個會轉的 3D 模型。"
-      />
-      {models.length > 0 && (
-        <p className="hint">
-          已附上 {models.length} 個 3D 模型:{models.map((m) => m.filename).join('、')}(發布時一起上傳)
-        </p>
-      )}
+        {models.length > 0 && (
+          <p className="hint">
+            已附上 {models.length} 個 3D 模型:{models.map((m) => m.filename).join('、')}(發布時一起上傳)
+          </p>
+        )}
 
-      {error && <p className="error">⚠️ {error}</p>}
+        {error && <p className="error">⚠️ {error}</p>}
 
-      <button className="btn publish" onClick={publish} disabled={status === 'publishing'}>
-        {status === 'publishing' ? '發布中…請稍候' : '🚀 發布'}
-      </button>
-    </main>
+        <button className="btn publish" onClick={publish} disabled={status === 'publishing'}>
+          {status === 'publishing' ? '發布中…請稍候' : '🚀 發布'}
+        </button>
+      </main>
+
+      <Preview title={title} date={date} tags={tagList} body={body} modelGifs={modelGifs} />
+    </div>
   );
 }

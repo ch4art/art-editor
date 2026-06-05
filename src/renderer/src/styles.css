@@ -317,3 +317,222 @@ body {
   outline: none;
   border-color: var(--bubblegum-deep);
 }
+
+/* ---------- 寫文章:雙欄(左編輯、右即時預覽) ---------- */
+.postwrap {
+  display: grid;
+  grid-template-columns: minmax(380px, 1fr) minmax(380px, 1fr);
+  gap: 18px;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 0 18px 60px;
+  align-items: start;
+}
+
+@media (max-width: 980px) {
+  .postwrap {
+    grid-template-columns: 1fr;
+  }
+}
+
+.postwrap .form {
+  padding: 24px 4px 0;
+  margin: 0;
+  max-width: none;
+}
+
+/* 預覽面板:重現網站文章頁的長相 */
+.preview-pane {
+  margin-top: 24px;
+  border: 3px solid var(--outline);
+  border-radius: 22px;
+  box-shadow: 6px 6px 0 0 var(--outline);
+  background-color: #fff7f2;
+  background-image: radial-gradient(rgba(255, 159, 203, 0.22) 1.7px, transparent 1.7px);
+  background-size: 26px 26px;
+  padding: 26px 26px 40px;
+  min-height: 480px;
+  position: sticky;
+  top: 12px;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+}
+
+.pv-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--bubblegum-deep);
+  letter-spacing: 0.15em;
+  margin-bottom: 10px;
+}
+
+.pv-title {
+  font-family: 'Fredoka Variable', system-ui, sans-serif;
+  font-size: 2rem;
+  color: #fff;
+  -webkit-text-stroke: 2px var(--outline);
+  paint-order: stroke fill;
+  text-shadow: 4px 4px 0 var(--bubblegum-deep);
+  display: inline-block;
+  transform: rotate(-2deg);
+  line-height: 1.15;
+  margin-bottom: 6px;
+}
+
+.pv-date {
+  color: rgba(74, 58, 85, 0.6);
+  font-weight: 700;
+  margin: 4px 0 8px;
+  font-size: 0.92rem;
+}
+
+.pv-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pv-tags span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 12px;
+  border-radius: 9999px;
+  background: #d8c7ff;
+  color: var(--ink);
+  border: 2px solid var(--outline);
+}
+
+/* 與網站 .post-body 同步的內文樣式 */
+.pv-body {
+  font-family: 'Nunito Variable', 'Microsoft JhengHei', system-ui, sans-serif;
+  line-height: 1.8;
+  color: var(--ink);
+}
+.pv-body h2 {
+  font-family: 'Fredoka Variable', system-ui, sans-serif;
+  color: var(--bubblegum-deep);
+  font-size: 1.5rem;
+  margin: 1.6rem 0 0.6rem;
+}
+.pv-body h3 {
+  font-family: 'Fredoka Variable', system-ui, sans-serif;
+  color: var(--ink);
+  font-size: 1.2rem;
+  margin: 1.3rem 0 0.4rem;
+}
+.pv-body p {
+  margin: 0.85rem 0;
+}
+.pv-body ul,
+.pv-body ol {
+  margin: 0.85rem 0;
+  padding-left: 1.4rem;
+}
+.pv-body a {
+  color: var(--bubblegum-deep);
+  text-decoration: underline;
+  font-weight: 700;
+}
+.pv-body img {
+  max-width: 100%;
+  border-radius: 22px;
+  border: 3px solid var(--outline);
+  box-shadow: 4px 4px 0 0 var(--outline);
+  margin: 1rem 0;
+}
+.pv-body code {
+  background: #fff0f6;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.5rem;
+  border: 1.5px solid var(--bubblegum);
+  font-size: 0.9em;
+}
+.pv-body pre {
+  background: #2b2233;
+  color: #fdeef6;
+  padding: 1rem;
+  border-radius: 14px;
+  border: 3px solid var(--outline);
+  overflow-x: auto;
+}
+.pv-body pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.pv-body blockquote {
+  border-left: 5px solid var(--bubblegum);
+  padding: 0.2rem 0 0.2rem 1rem;
+  margin: 0.85rem 0;
+  opacity: 0.9;
+}
+
+/* 預覽裡的 3D 模型(用會轉的 GIF 模擬網站上的互動模型) */
+.pv-model {
+  text-align: center;
+  background: #fff0f6;
+  border: 3px solid var(--outline);
+  border-radius: 22px;
+  padding: 14px;
+  margin: 1rem 0;
+}
+.pv-model img {
+  border: 0;
+  box-shadow: none;
+  margin: 0 auto;
+  border-radius: 16px;
+}
+.pv-model span {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--bubblegum-deep);
+}
+.pv-model.pv-model-empty {
+  padding: 30px;
+  font-weight: 800;
+  color: var(--bubblegum-deep);
+}
+
+/* ---------- 可愛游標 + 點擊星星(跟網站同款) ---------- */
+html,
+body {
+  cursor:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 C18 12 20 14 30 16 C20 18 18 20 16 30 C14 20 12 18 2 16 C12 14 14 12 16 2 Z' fill='%23FF9FCB' stroke='%233A2E45' stroke-width='2.5'/%3E%3C/svg%3E")
+      13 13,
+    auto;
+}
+
+a,
+button,
+select,
+label,
+input[type='file'] {
+  cursor:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 32 32'%3E%3Cpath d='M16 28 C8 22 3 17 3 11 C3 6.5 6.5 4 10 4 C12.5 4 15 5.5 16 8 C17 5.5 19.5 4 22 4 C25.5 4 29 6.5 29 11 C29 17 24 22 16 28 Z' fill='%23F2569E' stroke='%233A2E45' stroke-width='2.5'/%3E%3C/svg%3E")
+      14 14,
+    pointer;
+}
+
+.spark {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  user-select: none;
+  font-size: 15px;
+  line-height: 1;
+  animation: spark-pop 0.6s ease-out forwards;
+}
+
+@keyframes spark-pop {
+  0% {
+    transform: translate(-50%, -50%) translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) translate(var(--dx), var(--dy)) scale(0.2);
+    opacity: 0;
+  }
+}

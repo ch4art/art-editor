@@ -12,11 +12,14 @@
     "dist": "electron-vite build && electron-builder --win"
   },
   "dependencies": {
+    "@fontsource-variable/fredoka": "^5.2.10",
+    "@fontsource-variable/nunito": "^5.2.7",
     "@gltf-transform/core": "^4.3.0",
     "@gltf-transform/extensions": "^4.3.0",
     "@gltf-transform/functions": "^4.3.0",
     "gifenc": "^1.0.3",
     "gltfpack": "^1.1.0",
+    "marked": "^18.0.5",
     "meshoptimizer": "^1.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
