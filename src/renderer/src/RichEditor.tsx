@@ -323,7 +323,8 @@ const RichEditor = forwardRef<
 
   return (
     <div className="richwrap">
-      <div className="toolbar">
+      {/* 直欄工具列,貼著打字區左邊、跟著捲動 */}
+      <div className="toolbar rail">
         <TB
           on={editor?.isActive('bold')}
           act={() => editor?.chain().focus().toggleBold().run()}
@@ -362,31 +363,33 @@ const RichEditor = forwardRef<
         />
         {extraButtons}
       </div>
-      {linkOpen && (
-        <div className="linkbox">
-          <input
-            autoFocus
-            value={linkUrl}
-            onChange={(e) => setLinkUrl(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') applyLink();
-              if (e.key === 'Escape') {
-                setLinkOpen(false);
-                setLinkUrl('');
-              }
-            }}
-            placeholder="貼上網址,例如 example.com"
-          />
-          <button type="button" className="tb" onClick={applyLink}>
-            加上連結
-          </button>
+      <div className="surfacecol">
+        {linkOpen && (
+          <div className="linkbox">
+            <input
+              autoFocus
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') applyLink();
+                if (e.key === 'Escape') {
+                  setLinkOpen(false);
+                  setLinkUrl('');
+                }
+              }}
+              placeholder="貼上網址,例如 example.com"
+            />
+            <button type="button" className="tb" onClick={applyLink}>
+              加上連結
+            </button>
+          </div>
+        )}
+        <div className="editor-surface">
+          <AssetCtx.Provider value={assets}>
+            {header}
+            <EditorContent editor={editor} />
+          </AssetCtx.Provider>
         </div>
-      )}
-      <div className="editor-surface">
-        <AssetCtx.Provider value={assets}>
-          {header}
-          <EditorContent editor={editor} />
-        </AssetCtx.Provider>
       </div>
     </div>
   );

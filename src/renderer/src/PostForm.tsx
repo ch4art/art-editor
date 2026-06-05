@@ -391,65 +391,79 @@ export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: (
         </p>
       )}
 
-      <label>
-        一句話介紹
-        <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="會顯示在文章列表(可留空)" />
-      </label>
+      <div className="writegrid">
+        <RichEditor
+          key={seed.n}
+          ref={editorRef}
+          initialMarkdown={seed.md}
+          assets={assets}
+          onMarkdownChange={setBody}
+          onAddImages={addImages}
+          onDropModel={addModel}
+          header={
+            <div className="pv-head">
+              <TitleEdit key={`t${seed.n}`} initial={title} onChange={setTitle} />
+              <div className="pv-date">{date.split('-').join('/')}</div>
+              {tagList.length > 0 && (
+                <div className="pv-tags">
+                  {tagList.map((t) => (
+                    <span key={t}>#{t}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          }
+          extraButtons={
+            <>
+              <button
+                type="button"
+                className="tb-img"
+                onClick={() => imgRef.current?.click()}
+                disabled={imgBusy}
+                title="插入圖片(也可以直接貼上或拖進來)"
+              >
+                {imgBusy ? '⏳…' : '🖼️ 圖片'}
+              </button>
+              <button
+                type="button"
+                className="tb-3d"
+                onClick={() => fileRef.current?.click()}
+                disabled={modelBusy}
+                title="插入 3D 模型(也可以把 .glb 拖進來)"
+              >
+                {modelBusy ? '⏳…' : '🧊 3D'}
+              </button>
+            </>
+          }
+        />
 
-      <div className="row">
-        <label>
-          日期
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        </label>
-        <label>
-          標籤
-          <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="用逗號分隔,如:日常, 貓咪" />
-        </label>
+        <aside className="metabar">
+          <label>
+            一句話介紹
+            <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="顯示在文章列表(可留空)" />
+          </label>
+          <label>
+            日期
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </label>
+          <label>
+            標籤
+            <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="用逗號分隔,如:日常, 貓咪" />
+          </label>
+          {(usedModels.length > 0 || usedImages.length > 0) && (
+            <p className="hint">
+              會一起上傳:
+              {usedImages.length > 0 && ` 🖼️ ${usedImages.length} 張圖片`}
+              {usedModels.length > 0 && ` 🧊 ${usedModels.length} 個 3D 模型`}
+            </p>
+          )}
+          {error && <p className="error">⚠️ {error}</p>}
+          <button className="btn publish" onClick={publish} disabled={status === 'publishing'}>
+            {status === 'publishing' ? (edit ? '儲存中…' : '發布中…') : edit ? '💾 儲存修改' : '🚀 發布'}
+          </button>
+        </aside>
       </div>
 
-      <label className="bodylabel">文章(下面就是發布後的樣子,直接打字 ✨)</label>
-      <RichEditor
-        key={seed.n}
-        ref={editorRef}
-        initialMarkdown={seed.md}
-        assets={assets}
-        onMarkdownChange={setBody}
-        onAddImages={addImages}
-        onDropModel={addModel}
-        header={
-          <div className="pv-head">
-            <TitleEdit key={`t${seed.n}`} initial={title} onChange={setTitle} />
-            <div className="pv-date">{date.split('-').join('/')}</div>
-            {tagList.length > 0 && (
-              <div className="pv-tags">
-                {tagList.map((t) => (
-                  <span key={t}>#{t}</span>
-                ))}
-              </div>
-            )}
-          </div>
-        }
-        extraButtons={
-          <>
-            <button
-              type="button"
-              className="tb-img"
-              onClick={() => imgRef.current?.click()}
-              disabled={imgBusy}
-            >
-              {imgBusy ? '⏳ 處理圖片中…' : '🖼️ 插入圖片'}
-            </button>
-            <button
-              type="button"
-              className="tb-3d"
-              onClick={() => fileRef.current?.click()}
-              disabled={modelBusy}
-            >
-              {modelBusy ? '⏳ 處理模型中…' : '🧊 插入 3D 模型'}
-            </button>
-          </>
-        }
-      />
       <input
         ref={imgRef}
         type="file"
@@ -465,19 +479,6 @@ export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: (
         style={{ display: 'none' }}
         onChange={onModelFile}
       />
-      {(usedModels.length > 0 || usedImages.length > 0) && (
-        <p className="hint">
-          會一起上傳:
-          {usedImages.length > 0 && ` 🖼️ ${usedImages.length} 張圖片`}
-          {usedModels.length > 0 && ` 🧊 ${usedModels.length} 個 3D 模型`}
-        </p>
-      )}
-
-      {error && <p className="error">⚠️ {error}</p>}
-
-      <button className="btn publish" onClick={publish} disabled={status === 'publishing'}>
-        {status === 'publishing' ? (edit ? '儲存中…請稍候' : '發布中…請稍候') : edit ? '💾 儲存修改' : '🚀 發布'}
-      </button>
     </main>
   );
 }
