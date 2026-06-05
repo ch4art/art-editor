@@ -395,14 +395,13 @@ body {
   margin: 2px 0 6px;
 }
 
-/* 標題的「直接打字」狀態 */
+/* 標題的「直接打字」狀態 — 太長就跟網站一樣自動換行 */
 .pv-title-edit {
   outline: none;
   min-width: 10ch; /* 空白時也點得到 */
   caret-color: var(--bubblegum-deep);
-  white-space: nowrap;
-  overflow: hidden;
   max-width: 100%;
+  overflow-wrap: anywhere; /* 超長英文/網址也斷得開 */
 }
 
 .pv-title-edit:empty::before {
