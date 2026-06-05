@@ -1,0 +1,20 @@
+appId: com.ch4art.cuteeditor
+productName: 可愛網站編輯器
+directories:
+  output: release
+  buildResources: build
+# Disable asar so electron-builder doesn't re-open the freshly-copied .exe to
+# write asar-integrity (the step Windows Defender was locking → EBUSY).
+asar: false
+files:
+  - out/**
+  - package.json
+win:
+  # ASCII executable name avoids Chinese-path quirks during packaging.
+  executableName: CuteEditor
+  target:
+    - portable
+portable:
+  artifactName: CuteEditor-${version}.exe
+# Unsigned: Windows SmartScreen may warn "unknown publisher" — expected for a
+# personal tool (click "More info → Run anyway").
