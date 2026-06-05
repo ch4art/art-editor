@@ -63,6 +63,19 @@ const api = {
     getBinary: (path: string): Promise<string> => ipcRenderer.invoke('content:getBinary', path),
     remove: (item: { kind: 'post' | 'work'; path: string; title: string }): Promise<boolean> =>
       ipcRenderer.invoke('content:delete', item),
+    /** 資源回收桶:刪掉的內容(藏在 git 歷史裡)+ 一鍵還原。 */
+    trashList: (): Promise<
+      {
+        kind: 'post' | 'work';
+        title: string;
+        date: string;
+        parent: string;
+        files: string[];
+        key: string;
+      }[]
+    > => ipcRenderer.invoke('trash:list'),
+    restore: (item: { title: string; parent: string; files: string[] }): Promise<boolean> =>
+      ipcRenderer.invoke('trash:restore', item),
   },
 
   github: {

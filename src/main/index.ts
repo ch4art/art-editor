@@ -11,7 +11,14 @@ import {
   type WorkInput,
 } from './content';
 import { commitFiles, waitForDeploy, type CommitFile } from './publish';
-import { listContent, getContentText, getContentBase64, deleteContent } from './manage';
+import {
+  listContent,
+  getContentText,
+  getContentBase64,
+  deleteContent,
+  listTrash,
+  restoreContent,
+} from './manage';
 import { gltfpackOptimize } from './gltfpack';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -228,6 +235,22 @@ ipcMain.handle(
     const token = gh.loadToken();
     if (!token) throw new Error('尚未登入');
     await deleteContent(token, item);
+    return true;
+  },
+);
+
+ipcMain.handle('trash:list', async () => {
+  const token = gh.loadToken();
+  if (!token) throw new Error('尚未登入');
+  return listTrash(token);
+});
+
+ipcMain.handle(
+  'trash:restore',
+  async (_e, item: { title: string; parent: string; files: string[] }) => {
+    const token = gh.loadToken();
+    if (!token) throw new Error('尚未登入');
+    await restoreContent(token, item);
     return true;
   },
 );
