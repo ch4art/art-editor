@@ -33,17 +33,33 @@ export default function Manage({
   const [deleting, setDeleting] = useState<string | null>(null);
   const [trashOpen, setTrashOpen] = useState(false);
   const [trash, setTrash] = useState<TrashItem[] | null>(null);
+  const [trashError, setTrashError] = useState<string | null>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
 
-  async function refresh() {
+  function loadTrash() {
+    setTrash(null);
+    setTrashError(null);
+    window.api.content
+      .trashList()
+      .then(setTrash)
+      .catch((e) => {
+        setTrashError(e instanceof Error ? e.message : '讀取回收桶失敗');
+        setTrash([]);
+      });
+  }
+
+  function refresh() {
     setItems(null);
     setError(null);
-    try {
-      setItems(await window.api.content.list());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '讀取失敗');
-      setItems([]);
-    }
+    // 清單跟回收桶同時抓,不互相等
+    window.api.content
+      .list()
+      .then(setItems)
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : '讀取失敗');
+        setItems([]);
+      });
+    loadTrash();
   }
 
   useEffect(() => {
@@ -63,24 +79,11 @@ export default function Manage({
     try {
       await window.api.content.remove(item);
       setItems((prev) => (prev ?? []).filter((x) => x.path !== item.path));
-      setTrash(null); // 回收桶內容變了,下次打開重新讀
+      loadTrash(); // 剛刪的馬上出現在回收桶
     } catch (e) {
       setError(e instanceof Error ? e.message : '刪除失敗');
     } finally {
       setDeleting(null);
-    }
-  }
-
-  async function openTrash() {
-    const next = !trashOpen;
-    setTrashOpen(next);
-    if (next && trash === null) {
-      try {
-        setTrash(await window.api.content.trashList());
-      } catch (e) {
-        setError(e instanceof Error ? e.message : '讀取回收桶失敗');
-        setTrash([]);
-      }
     }
   }
 
@@ -90,7 +93,7 @@ export default function Manage({
     try {
       await window.api.content.restore(item);
       setTrash((prev) => (prev ?? []).filter((x) => x.key !== item.key));
-      await refresh(); // 還原的項目馬上回到上面的列表
+      refresh(); // 還原的項目馬上回到上面的列表
     } catch (e) {
       setError(e instanceof Error ? e.message : '還原失敗');
     } finally {
@@ -151,6 +154,9 @@ export default function Manage({
         管理已發布的內容 📚{' '}
         <button className="mini" onClick={refresh} disabled={items === null}>
           🔄 重新整理
+        </button>{' '}
+        <button className="mini" onClick={() => setTrashOpen((v) => !v)}>
+          🗑️ 回收桶{trash !== null ? `(${trash.length})` : ''} {trashOpen ? '▲' : '▼'}
         </button>
       </h2>
       {items === null && <p className="waiting">⏳ 正在從 GitHub 讀取清單…</p>}
@@ -163,15 +169,14 @@ export default function Manage({
           <p className="hint">編輯或刪除後,網站大約 1–2 分鐘會自動更新。</p>
 
           <section className="managesec trashsec">
-            <h3>
-              <button className="mini" onClick={openTrash}>
-                🗑️ 資源回收桶 {trashOpen ? '▲' : '▼'}
-              </button>
-            </h3>
+            {trashOpen && <h3>🗑️ 資源回收桶</h3>}
             {trashOpen && trash === null && <p className="waiting">⏳ 正在翻垃圾桶…</p>}
+            {trashOpen && trashError && <p className="error">⚠️ {trashError}</p>}
             {trashOpen && trash !== null && (
               <>
-                {trash.length === 0 && <p className="hint">(回收桶是空的,真乾淨!)</p>}
+                {trash.length === 0 && !trashError && (
+                  <p className="hint">(回收桶是空的,真乾淨!)</p>
+                )}
                 <ul className="managelist">
                   {trash.map((t) => (
                     <li key={t.key}>
