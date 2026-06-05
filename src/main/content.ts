@@ -17,6 +17,9 @@ export type BlogPostInput = {
   date: string; // 'YYYY-MM-DD'
   tags: string[];
   body: string;
+  /** 私密文章:body 留空,內容已在 renderer 加密成 cipher。 */
+  private?: boolean;
+  cipher?: string;
 };
 
 /** Escape { } in user text — MDX treats a bare "{" as an expression and the
@@ -45,6 +48,27 @@ export function buildBlogPost(post: BlogPostInput): { slug: string; mdx: string 
   const tags = post.tags.length
     ? `[${post.tags.map((t) => yamlStr(t)).join(', ')}]`
     : '[]';
+
+  // 私密文章:內文只放占位字,真正的內容在 cipher(網站端輸入密語解鎖)。
+  // 標題以外的欄位一律不外洩 —— description/tags 會出現在文章列表、RSS、
+  // 分享預覽,所以強制蓋成占位值,不用作者打的字(避免不小心把劇透寫在介紹)。
+  if (post.private && post.cipher) {
+    const mdx = [
+      '---',
+      `title: ${yamlStr(post.title)}`,
+      `description: ${yamlStr('🔒 私密文章')}`,
+      `pubDate: ${post.date}`,
+      'tags: []',
+      'draft: false',
+      'private: true',
+      `cipher: ${yamlStr(post.cipher)}`,
+      '---',
+      '',
+      '這是一篇私密文章,要有通關密語才能看 🔒',
+      '',
+    ].join('\n');
+    return { slug, mdx };
+  }
 
   // Turn the friendly token "<<3D模型: file.glb>>" the editor inserts into the
   // real (interactive) component, and auto-import it — so the user never sees JSX.

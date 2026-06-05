@@ -9,6 +9,8 @@ export type ParsedPost = {
   tags: string[];
   body: string; // import stripped, ModelViewer JSX → tokens
   imageNames: string[]; // referenced ./images/<name> files
+  /** 私密文章的密文(需要密語才能在編輯器裡打開)。 */
+  privateCipher?: string;
 };
 
 export type ParsedWork = {
@@ -72,13 +74,16 @@ export function parsePost(src: string): ParsedPost {
     .trim();
   const imageNames = [...body.matchAll(IMAGE_REF)].map((m) => m[1]);
   const dateRaw = unquote(field(fm, 'pubDate'));
+  const isPrivate = field(fm, 'private') === 'true';
+  const cipher = unquote(field(fm, 'cipher'));
   return {
     title: unquote(field(fm, 'title')),
     description: unquote(field(fm, 'description')),
     date: dateRaw.slice(0, 10),
     tags: parseTags(field(fm, 'tags')),
-    body,
-    imageNames: [...new Set(imageNames)],
+    body: isPrivate ? '' : body,
+    imageNames: isPrivate ? [] : [...new Set(imageNames)],
+    privateCipher: isPrivate && cipher ? cipher : undefined,
   };
 }
 

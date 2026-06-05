@@ -54,6 +54,7 @@ export default function Editor({ login, onLogout }: { login: string; onLogout: (
         tags: p.tags.join(', '),
         body: p.body,
         images,
+        privateCipher: p.privateCipher,
       });
       setTab('post');
     } catch (e) {

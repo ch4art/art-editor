@@ -136,6 +136,8 @@ ipcMain.handle(
     post: BlogPostInput & {
       models?: { filename: string; base64: string }[];
       images?: { filename: string; base64: string }[];
+      /** 私密文章的加密圖片(已含完整 repo 路徑)。 */
+      encImages?: { path: string; base64: string }[];
       /** Set when editing — overwrite this file instead of creating a new one. */
       existingPath?: string;
     },
@@ -157,6 +159,21 @@ ipcMain.handle(
         content: img.base64,
         encoding: 'base64',
       });
+    }
+    for (const enc of post.encImages ?? []) {
+      files.push({ path: enc.path, content: enc.base64, encoding: 'base64' });
+    }
+    // 公開文章被改成私密:把舊版引用的明文圖片從 repo HEAD 一起刪掉
+    //(git 歷史仍會留著 — 真正的祕密請開新的私密文章)。
+    if (post.existingPath && post.private) {
+      try {
+        const old = await getContentText(token, post.existingPath);
+        for (const m of old.matchAll(/!\[[^\]]*\]\(\.\/images\/([^)\s]+)\)/g)) {
+          files.push({ path: `src/content/blog/images/${m[1]}`, del: true });
+        }
+      } catch {
+        /* 抓不到舊版就跳過刪除 */
+      }
     }
     const sha = await commitFiles(
       token,

@@ -4,6 +4,7 @@ import { optimizeGlb } from './optimize';
 import { generateThumbnailGif } from './thumb';
 import { compressImage, imageMime } from './image';
 import { saveDraft, loadDraft, clearDraft } from './draft';
+import { encryptPrivate, openPrivate, decryptImage } from './crypto';
 
 const DRAFT_KEY = 'post';
 
@@ -45,6 +46,8 @@ type DraftShape = {
   body: string;
   models: Attached[];
   images: Attached[];
+  isPrivate?: boolean;
+  pw?: string;
 };
 
 const TOKEN_ALL = /<<3D模型:\s*([^>]+?)\s*>>/g;
@@ -98,6 +101,8 @@ export type EditPost = {
   tags: string; // comma-joined
   body: string; // ModelViewer JSX already reversed to <<3D模型: …>> tokens
   images: Attached[];
+  /** 私密文章:需要密語才能在編輯器裡打開內容。 */
+  privateCipher?: string;
 };
 
 export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: () => void }) {
@@ -124,6 +129,12 @@ export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: (
   const [imgBusy, setImgBusy] = useState(false);
   const [restored, setRestored] = useState(false);
   const [waitSec, setWaitSec] = useState(0);
+  // 私密文章
+  const [isPrivate, setIsPrivate] = useState(Boolean(edit?.privateCipher));
+  const [pw, setPw] = useState('');
+  const [locked, setLocked] = useState(Boolean(edit?.privateCipher)); // 編輯私密文章:尚未輸入密語
+  const [unlockErr, setUnlockErr] = useState<string | null>(null);
+  const [unlockBusy, setUnlockBusy] = useState(false);
   const editorRef = useRef<RichEditorHandle>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLInputElement>(null);
@@ -179,6 +190,8 @@ export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: (
           setSeed((s) => ({ md: d.body ?? '', n: s.n + 1 }));
           setModels(d.models ?? []);
           setImages((d.images ?? []).map((img) => ({ ...img, url: blobUrlFor(img) })));
+          setIsPrivate(Boolean(d.isPrivate));
+          // 密語沒有存檔,還原後請重打
           setRestored(true);
           loaded.current = true; // autosave may resume right away
           // 背景重建 3D 預覽 GIF(不擋自動儲存)
@@ -246,11 +259,13 @@ export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: (
         body,
         models: models.map((m) => ({ filename: m.filename, bytes: m.bytes })),
         images: images.map((i) => ({ filename: i.filename, bytes: i.bytes })),
+        isPrivate,
+        // 通關密語「絕不」寫到磁碟 —— 還原草稿時請作者重打一次。
       };
       saveDraft(DRAFT_KEY, d).catch(() => {});
     }, 800);
     return () => clearTimeout(t);
-  }, [title, desc, date, tags, body, models, images, status]);
+  }, [title, desc, date, tags, body, models, images, status, isPrivate]);
 
   async function addModel(f: File) {
     setModelBusy(true);
@@ -308,22 +323,95 @@ export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: (
     if (files.length) await addImages(files);
   }
 
+  // 編輯私密文章:輸入密語解鎖內容
+  async function unlock() {
+    if (!edit?.privateCipher) return;
+    setUnlockBusy(true);
+    setUnlockErr(null);
+    try {
+      const { payload, key } = await openPrivate(pw, edit.privateCipher);
+      // 圖片若有任何一張解不開,先擋下編輯 —— 否則「儲存修改」會把那張
+      // 圖片永久弄丟。寧可要作者重試,也不要默默掉圖。
+      const imgs: AttachedImage[] = [];
+      for (const ref of payload.images ?? []) {
+        const b64 = await window.api.content.getBinary(`public/${ref.file}`);
+        const bytes = await decryptImage(key, ref.iv, fromBase64(b64));
+        imgs.push({
+          filename: ref.name,
+          bytes,
+          url: URL.createObjectURL(new Blob([bytes as BlobPart], { type: ref.type })),
+        });
+      }
+      setBody(payload.md);
+      setSeed((s) => ({ md: payload.md, n: s.n + 1 }));
+      setImages(imgs);
+      setLocked(false);
+    } catch {
+      setUnlockErr('密語不對,或有圖片載入失敗 —— 請確認密語和網路後再試一次');
+    } finally {
+      setUnlockBusy(false);
+    }
+  }
+
   async function publish() {
     if (!title.trim()) {
       setError('標題不能空白喔');
       return;
     }
+    if (isPrivate) {
+      if (!pw.trim()) {
+        setError('私密文章要先設定通關密語喔');
+        return;
+      }
+      if (body.includes('<<3D模型')) {
+        setError('私密文章目前不能放 3D 模型,先把它刪掉再發布');
+        return;
+      }
+      // 把公開文章改成私密:舊版明文永遠留在 GitHub 歷史裡,要講清楚
+      if (edit && !edit.privateCipher) {
+        if (
+          !window.confirm(
+            '這篇文章本來是公開的。\n改成私密後,新內容會上鎖,但「之前公開過的版本」會永遠留在 GitHub 的歷史紀錄裡撈得到。\n如果是真的不能被看到的祕密,建議改開一篇全新的私密文章。\n\n還是要把這篇改成私密嗎?',
+          )
+        )
+          return;
+      }
+    }
+    // 把私密文章改回公開:內容會變成所有人都看得到,而且永遠留在網路上
+    if (edit?.privateCipher && !isPrivate) {
+      if (
+        !window.confirm(
+          '⚠️ 這篇原本是「私密文章」!\n按儲存後,內文和圖片會變成所有人都看得到,而且永遠留在網路紀錄上,收不回來。\n\n確定要公開嗎?',
+        )
+      )
+        return;
+    }
     setError(null);
     setStatus('publishing');
     try {
+      // 私密文章:內文+圖片在這裡加密,密語不會離開這台電腦
+      const sealed = isPrivate
+        ? await encryptPrivate(
+            pw,
+            body,
+            usedImages.map((i) => ({ filename: i.filename, bytes: i.bytes })),
+          )
+        : null;
       const res = await window.api.publish.post({
         title: title.trim(),
         description: desc.trim(),
         date,
         tags: tagList,
-        body,
-        models: usedModels.map((m) => ({ filename: m.filename, base64: toBase64(m.bytes) })),
-        images: usedImages.map((i) => ({ filename: i.filename, base64: toBase64(i.bytes) })),
+        body: sealed ? '' : body,
+        private: isPrivate || undefined,
+        cipher: sealed?.cipher,
+        encImages: sealed?.encImages,
+        models: sealed
+          ? []
+          : usedModels.map((m) => ({ filename: m.filename, base64: toBase64(m.bytes) })),
+        images: sealed
+          ? []
+          : usedImages.map((i) => ({ filename: i.filename, base64: toBase64(i.bytes) })),
         existingPath: edit?.path,
       });
       setResult(res);
@@ -362,6 +450,8 @@ export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: (
     setModels([]);
     setImages([]);
     setModelGifs({});
+    setIsPrivate(false);
+    setPw('');
     setStatus('idle');
     setDoneNote(null);
     setResult(null);
@@ -418,6 +508,30 @@ export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: (
         </p>
       )}
 
+      {locked ? (
+        <div className="card center">
+          <h1>🔒</h1>
+          <p className="hint" style={{ fontSize: '1rem' }}>
+            這是私密文章,輸入通關密語才能編輯。
+          </p>
+          <input
+            type="password"
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !unlockBusy && pw.trim()) unlock();
+            }}
+            placeholder="通關密語…"
+            style={{ maxWidth: 260, margin: '10px auto' }}
+          />
+          <div className="btnrow">
+            <button className="btn" onClick={unlock} disabled={unlockBusy || !pw.trim()}>
+              {unlockBusy ? '⏳ 解鎖中…' : '解鎖 ✨'}
+            </button>
+          </div>
+          {unlockErr && <p className="error">⚠️ {unlockErr}</p>}
+        </div>
+      ) : (
       <div className="writegrid">
         <RichEditor
           key={seed.n}
@@ -455,8 +569,10 @@ export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: (
                 type="button"
                 className="tb-3d"
                 onClick={() => fileRef.current?.click()}
-                disabled={modelBusy}
-                title="插入 3D 模型(也可以把 .glb 拖進來)"
+                disabled={modelBusy || isPrivate}
+                title={
+                  isPrivate ? '私密文章目前不能放 3D 模型' : '插入 3D 模型(也可以把 .glb 拖進來)'
+                }
               >
                 {modelBusy ? '⏳…' : '🧊 3D'}
               </button>
@@ -467,7 +583,12 @@ export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: (
         <aside className="metabar">
           <label>
             一句話介紹
-            <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="顯示在文章列表(可留空)" />
+            <input
+              value={isPrivate ? '' : desc}
+              onChange={(e) => setDesc(e.target.value)}
+              placeholder={isPrivate ? '私密文章不顯示介紹' : '顯示在文章列表(可留空)'}
+              disabled={isPrivate}
+            />
           </label>
           <label>
             日期
@@ -475,8 +596,40 @@ export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: (
           </label>
           <label>
             標籤
-            <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="用逗號分隔,如:日常, 貓咪" />
+            <input
+              value={isPrivate ? '' : tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder={isPrivate ? '私密文章不顯示標籤' : '用逗號分隔,如:日常, 貓咪'}
+              disabled={isPrivate}
+            />
           </label>
+          <label className="prilabel">
+            <span>
+              <input
+                type="checkbox"
+                checked={isPrivate}
+                onChange={(e) => setIsPrivate(e.target.checked)}
+              />{' '}
+              🔒 私密文章
+            </span>
+          </label>
+          {isPrivate && (
+            <label>
+              通關密語
+              <input
+                value={pw}
+                onChange={(e) => setPw(e.target.value)}
+                placeholder="看的人要輸入這個"
+              />
+              <span className="hint" style={{ margin: 0 }}>
+                🔒 內文和圖片會上鎖,只有知道密語的人能看。
+                <br />
+                ⚠️ 但<b>標題和日期還是公開的</b>,大家都看得到,所以標題別寫祕密。
+                <br />
+                忘記密語就誰都打不開了!(私密文章不能放 3D 模型)
+              </span>
+            </label>
+          )}
           {(usedModels.length > 0 || usedImages.length > 0) && (
             <p className="hint">
               會一起上傳:
@@ -514,6 +667,7 @@ export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: (
           )}
         </aside>
       </div>
+      )}
 
       <input
         ref={imgRef}

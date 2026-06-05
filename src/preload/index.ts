@@ -9,6 +9,8 @@ type BlogPostInput = {
   date: string;
   tags: string[];
   body: string;
+  private?: boolean;
+  cipher?: string;
 };
 
 const api = {
@@ -31,6 +33,7 @@ const api = {
       data: BlogPostInput & {
         models?: { filename: string; base64: string }[];
         images?: { filename: string; base64: string }[];
+        encImages?: { path: string; base64: string }[];
         existingPath?: string;
       },
     ): Promise<{ slug: string; path: string; sha: string; url: string }> =>

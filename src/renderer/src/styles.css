@@ -791,3 +791,16 @@ input[type='file'] {
 .mini:disabled {
   opacity: 0.5;
 }
+
+/* 私密文章開關 */
+.prilabel {
+  flex-direction: row !important;
+  align-items: center;
+}
+
+.prilabel input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--bubblegum-deep);
+  vertical-align: -3px;
+}
