@@ -19,6 +19,22 @@ export type BlogPostInput = {
   body: string;
 };
 
+/** Escape { } in user text — MDX treats a bare "{" as an expression and the
+ *  whole site build would fail. Code fences/inline code are skipped (a
+ *  backslash would show literally there). Runs BEFORE the 3D-token transform
+ *  so the generated <ModelViewer> JSX keeps its braces. */
+function escapeMdxBraces(src: string): string {
+  return src
+    .split(/(```[\s\S]*?```|`[^`\n]*`)/g)
+    .map((seg, i) =>
+      i % 2 === 1
+        ? seg
+        : // un-escape first so re-publishing an already-escaped body is idempotent
+          seg.replace(/\\([{}])/g, '$1').replace(/([{}])/g, '\\$1'),
+    )
+    .join('');
+}
+
 export function buildBlogPost(post: BlogPostInput): { slug: string; mdx: string } {
   const now = new Date();
   const stamp =
@@ -33,7 +49,7 @@ export function buildBlogPost(post: BlogPostInput): { slug: string; mdx: string 
   // Turn the friendly token "<<3D模型: file.glb>>" the editor inserts into the
   // real (interactive) component, and auto-import it — so the user never sees JSX.
   let usesModel = false;
-  const body = post.body.replace(/<<3D模型:\s*([^>]+?)\s*>>/g, (_m, file) => {
+  const body = escapeMdxBraces(post.body).replace(/<<3D模型:\s*([^>]+?)\s*>>/g, (_m, file) => {
     usesModel = true;
     const f = String(file).trim();
     return (

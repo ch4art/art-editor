@@ -17,13 +17,20 @@
     "@gltf-transform/core": "^4.3.0",
     "@gltf-transform/extensions": "^4.3.0",
     "@gltf-transform/functions": "^4.3.0",
+    "@tiptap/core": "^2.27.2",
+    "@tiptap/extension-image": "^2.27.2",
+    "@tiptap/extension-link": "^2.27.2",
+    "@tiptap/extension-placeholder": "^2.27.2",
+    "@tiptap/react": "^2.27.2",
+    "@tiptap/starter-kit": "^2.27.2",
     "gifenc": "^1.0.3",
     "gltfpack": "^1.1.0",
     "marked": "^18.0.5",
     "meshoptimizer": "^1.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "three": "^0.184.0"
+    "three": "^0.184.0",
+    "tiptap-markdown": "^0.8.10"
   },
   "devDependencies": {
     "@electron/packager": "^20.0.0",

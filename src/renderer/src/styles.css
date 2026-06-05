@@ -328,56 +328,62 @@ body {
   border-color: var(--bubblegum-deep);
 }
 
-/* ---------- 寫文章:雙欄(左編輯、右即時預覽) ---------- */
-.postwrap {
-  display: grid;
-  grid-template-columns: minmax(380px, 1fr) minmax(380px, 1fr);
-  gap: 18px;
-  max-width: 1500px;
-  margin: 0 auto;
-  padding: 0 18px 60px;
-  align-items: start;
+/* ---------- 寫文章:所見即所得(直接在「發布後的樣子」裡打字) ---------- */
+.form.formwide {
+  max-width: 880px;
 }
 
-@media (max-width: 980px) {
-  .postwrap {
-    grid-template-columns: 1fr;
-  }
+.richwrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.postwrap .form {
-  padding: 24px 4px 0;
-  margin: 0;
-  max-width: none;
-}
-
-/* 預覽面板:重現網站文章頁的長相 */
-.preview-pane {
-  margin-top: 24px;
-  border: 3px solid var(--outline);
-  border-radius: 22px;
-  box-shadow: 6px 6px 0 0 var(--outline);
-  background-color: #fff7f2;
-  background-image: radial-gradient(rgba(255, 159, 203, 0.22) 1.7px, transparent 1.7px);
-  background-size: 26px 26px;
-  padding: 26px 26px 40px;
-  min-height: 480px;
+/* 工具列跟著捲動,寫長文時不會不見 */
+.richwrap .toolbar {
   position: sticky;
-  top: 12px;
-  max-height: calc(100vh - 24px);
-  overflow-y: auto;
+  top: 8px;
+  z-index: 6;
+  background: #fff;
+  border: 3px solid var(--outline);
+  border-radius: 999px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 0 0 rgba(58, 46, 69, 0.12);
 }
 
-.pv-label {
-  font-size: 0.78rem;
-  font-weight: 800;
-  color: var(--bubblegum-deep);
-  letter-spacing: 0.15em;
-  margin-bottom: 10px;
+/* 加連結的小輸入列 */
+.linkbox {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.linkbox input {
+  flex: 1;
+  font: inherit;
+  font-weight: 500;
+  color: var(--ink);
+  background: #fff;
+  border: 3px solid var(--outline);
+  border-radius: 999px;
+  padding: 8px 16px;
+}
+
+.linkbox input:focus {
+  outline: none;
+  border-color: var(--bubblegum-deep);
+}
+
+/* ----- 網站同款的文章開頭(標題直接在這裡打字) ----- */
+.pv-head {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 3px dashed rgba(247, 111, 174, 0.35);
 }
 
 .pv-title {
   font-family: 'Fredoka Variable', system-ui, sans-serif;
+  font-weight: 700;
   font-size: 2rem;
   color: #fff;
   -webkit-text-stroke: 2px var(--outline);
@@ -385,8 +391,23 @@ body {
   text-shadow: 4px 4px 0 var(--bubblegum-deep);
   display: inline-block;
   transform: rotate(-2deg);
-  line-height: 1.15;
-  margin-bottom: 6px;
+  line-height: 1.2;
+  margin: 2px 0 6px;
+}
+
+/* 標題的「直接打字」狀態 */
+.pv-title-edit {
+  outline: none;
+  min-width: 10ch; /* 空白時也點得到 */
+  caret-color: var(--bubblegum-deep);
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.pv-title-edit:empty::before {
+  content: attr(data-ph);
+  opacity: 0.55;
 }
 
 .pv-date {
@@ -400,7 +421,6 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 8px;
 }
 
 .pv-tags span {
@@ -411,6 +431,88 @@ body {
   background: #d8c7ff;
   color: var(--ink);
   border: 2px solid var(--outline);
+}
+
+/* ----- 滑過 3D 區塊 / 圖片時出現的刪除鈕 ----- */
+.pv-model,
+.pv-imgwrap {
+  position: relative;
+}
+
+.nv-del {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2.5px solid var(--outline);
+  background: #ffc9d6;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 900;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.pv-model:hover .nv-del,
+.pv-imgwrap:hover .nv-del,
+.ProseMirror-selectednode .nv-del {
+  opacity: 1;
+}
+
+.nv-del:hover {
+  background: var(--bubblegum-deep);
+  color: #fff;
+}
+
+/* 寫作畫布:跟網站文章頁同樣的紙張感 */
+.editor-surface {
+  border: 3px solid var(--outline);
+  border-radius: 22px;
+  box-shadow: 6px 6px 0 0 var(--outline);
+  background-color: #fff7f2;
+  background-image: radial-gradient(rgba(255, 159, 203, 0.22) 1.7px, transparent 1.7px);
+  background-size: 26px 26px;
+  padding: 22px 26px 32px;
+}
+
+.editor-surface .ProseMirror {
+  outline: none;
+  min-height: 340px;
+  caret-color: var(--bubblegum-deep);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 空白時的提示文字 */
+.editor-surface .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: rgba(74, 58, 85, 0.38);
+}
+
+/* 點選 3D 區塊 / 圖片時的可愛選取框 */
+.editor-surface .ProseMirror-selectednode {
+  outline: 3px dashed var(--bubblegum-deep);
+  outline-offset: 4px;
+  border-radius: 22px;
+}
+
+.pv-imgwrap {
+  margin: 1rem 0;
+}
+.pv-imgwrap img {
+  margin: 0;
+}
+
+.toolbar .tb.on {
+  background: var(--bubblegum-deep);
+  color: #fff;
 }
 
 /* 與網站 .post-body 同步的內文樣式 */

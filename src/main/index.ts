@@ -61,6 +61,10 @@ function createWindow(): void {
   });
   win.webContents.on('did-finish-load', () => dlog('did-finish-load OK'));
 
+  // The app is a single local page — block any in-window navigation
+  // (e.g. a file dropped outside the editor would load its file:// URL).
+  win.webContents.on('will-navigate', (e) => e.preventDefault());
+
   const devUrl = process.env['ELECTRON_RENDERER_URL'];
   if (devUrl) {
     win.loadURL(devUrl);
