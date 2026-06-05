@@ -114,7 +114,10 @@ export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: (
   // The editor is remounted (key=n) whenever the whole document is replaced
   // from outside (draft restore / start-over) — simpler & safer than imperative sync.
   const [seed, setSeed] = useState({ md: edit?.body ?? '', n: 0 });
-  const [status, setStatus] = useState<'idle' | 'publishing' | 'done' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'publishing' | 'deploying' | 'done' | 'error'>(
+    'idle',
+  );
+  const [doneNote, setDoneNote] = useState<string | null>(null);
   const [result, setResult] = useState<{ url: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [modelBusy, setModelBusy] = useState(false);
@@ -315,8 +318,14 @@ export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: (
         existingPath: edit?.path,
       });
       setResult(res);
-      setStatus('done');
       if (!edit) clearDraft(DRAFT_KEY).catch(() => {});
+      // 等到網站真的部署完成,「看文章」按下去保證是新的
+      setStatus('deploying');
+      const live = await window.api.publish.waitLive(res.sha);
+      setDoneNote(
+        live.ok ? null : '網站這次更新得比平常慢,如果點開還沒看到,等一下再重新整理就好。',
+      );
+      setStatus('done');
     } catch (e) {
       setError(e instanceof Error ? e.message : '發布失敗');
       setStatus('error');
@@ -337,18 +346,33 @@ export default function PostForm({ edit, onDone }: { edit?: EditPost; onDone?: (
     setImages([]);
     setModelGifs({});
     setStatus('idle');
+    setDoneNote(null);
     setResult(null);
     setError(null);
     setRestored(false);
     clearDraft(DRAFT_KEY).catch(() => {});
   }
 
+  if (status === 'deploying') {
+    return (
+      <div className="form">
+        <div className="card center">
+          <h1>
+            <span className="spin-egg">🐣</span> 網站更新中…
+          </h1>
+          <p>文章上傳好了,正在等網站蓋好新頁面(通常 1~2 分鐘)。</p>
+          <p className="hint">好了會直接告訴你,不用一直盯著~</p>
+        </div>
+      </div>
+    );
+  }
+
   if (status === 'done' && result) {
     return (
       <div className="form">
         <div className="card center">
-          <h1>{edit ? '✨ 更新成功!' : '🎉 發布成功!'}</h1>
-          <p>{edit ? '修改已送出' : '文章已經送出'},網站大約 1–2 分鐘後會自動更新。</p>
+          <h1>{edit ? '✨ 更新完成!' : '🎉 文章上線了!'}</h1>
+          <p>{doneNote ?? '網站已經更新好,點下面就能看到!'}</p>
           <div className="btnrow">
             <button className="btn" onClick={() => window.api.openExternal(result.url)}>
               看文章

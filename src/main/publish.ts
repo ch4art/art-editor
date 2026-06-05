@@ -81,3 +81,31 @@ export async function commitFiles(
 
   return commit.sha as string;
 }
+
+/** Poll the Pages deploy workflow for a commit until it finishes, so the UI
+ *  can show 發布成功 only when the site is actually live. deploy-pages@v5
+ *  completes after the deployment is being served, so run success ⇒ live. */
+export async function waitForDeploy(
+  token: string,
+  sha: string,
+  timeoutMs = 6 * 60_000,
+): Promise<{ ok: boolean; state: string }> {
+  const { owner, repo } = REPO;
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const data = await ghApi(
+        token,
+        `/repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=5`,
+      );
+      const run = (data.workflow_runs ?? [])[0];
+      if (run && run.status === 'completed') {
+        return { ok: run.conclusion === 'success', state: String(run.conclusion ?? 'unknown') };
+      }
+    } catch {
+      /* transient network/API hiccup — keep polling */
+    }
+    await new Promise((r) => setTimeout(r, 5000));
+  }
+  return { ok: false, state: 'timeout' };
+}

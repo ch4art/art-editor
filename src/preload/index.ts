@@ -33,7 +33,7 @@ const api = {
         images?: { filename: string; base64: string }[];
         existingPath?: string;
       },
-    ): Promise<{ slug: string; path: string; url: string }> =>
+    ): Promise<{ slug: string; path: string; sha: string; url: string }> =>
       ipcRenderer.invoke('publish:post', data),
     work: (data: {
       title: string;
@@ -47,7 +47,11 @@ const api = {
       existingSlug?: string;
       keepAssets?: boolean;
       order?: number;
-    }): Promise<{ slug: string; url: string }> => ipcRenderer.invoke('publish:work', data),
+    }): Promise<{ slug: string; sha: string; url: string }> =>
+      ipcRenderer.invoke('publish:work', data),
+    /** Resolves once the Pages deploy for this commit finishes (site live). */
+    waitLive: (sha: string): Promise<{ ok: boolean; state: string }> =>
+      ipcRenderer.invoke('publish:waitLive', sha),
   },
 
   /** Published content on GitHub: list, read, delete (for the manage tab). */

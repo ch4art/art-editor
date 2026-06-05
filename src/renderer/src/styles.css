@@ -513,6 +513,23 @@ body {
   color: #fff;
 }
 
+/* 發布後「網站更新中」的搖擺小雞 */
+.spin-egg {
+  display: inline-block;
+  animation: egg-wobble 1s ease-in-out infinite;
+  transform-origin: 50% 80%;
+}
+
+@keyframes egg-wobble {
+  0%,
+  100% {
+    transform: rotate(-12deg);
+  }
+  50% {
+    transform: rotate(12deg);
+  }
+}
+
 /* 寫作畫布:跟網站文章頁同樣的紙張感 */
 .editor-surface {
   border: 3px solid var(--outline);

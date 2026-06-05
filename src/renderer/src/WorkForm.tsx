@@ -61,9 +61,10 @@ export default function WorkForm({ edit, onDone }: { edit?: EditWork; onDone?: (
   const [env, setEnv] = useState(edit?.env ?? 'city');
   const [tags, setTags] = useState(edit?.tags ?? '');
   const [simplify, setSimplify] = useState(1);
-  const [phase, setPhase] = useState<'idle' | 'thumbing' | 'reopt' | 'publishing' | 'done' | 'error'>(
-    'idle',
-  );
+  const [phase, setPhase] = useState<
+    'idle' | 'thumbing' | 'reopt' | 'publishing' | 'deploying' | 'done' | 'error'
+  >('idle');
+  const [doneNote, setDoneNote] = useState<string | null>(null);
   const [result, setResult] = useState<{ url: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sizeInfo, setSizeInfo] = useState<{ before: number; after: number } | null>(null);
@@ -156,6 +157,12 @@ export default function WorkForm({ edit, onDone }: { edit?: EditWork; onDone?: (
         ...(edit ? { existingSlug: edit.slug, keepAssets: !hasNewModel, order: edit.order } : {}),
       });
       setResult(res);
+      // 等網站真的部署完成,「看作品」按下去保證是新的
+      setPhase('deploying');
+      const live = await window.api.publish.waitLive(res.sha);
+      setDoneNote(
+        live.ok ? null : '網站這次更新得比平常慢,如果點開還沒看到,等一下再重新整理就好。',
+      );
       setPhase('done');
     } catch (e) {
       setError(e instanceof Error ? e.message : '發布失敗');
@@ -177,17 +184,32 @@ export default function WorkForm({ edit, onDone }: { edit?: EditWork; onDone?: (
     setTags('');
     setSimplify(1);
     setPhase('idle');
+    setDoneNote(null);
     setResult(null);
     setError(null);
     setSizeInfo(null);
+  }
+
+  if (phase === 'deploying') {
+    return (
+      <div className="form">
+        <div className="card center">
+          <h1>
+            <span className="spin-egg">🐣</span> 網站更新中…
+          </h1>
+          <p>作品上傳好了,正在等網站蓋好新頁面(通常 1~2 分鐘)。</p>
+          <p className="hint">好了會直接告訴你,不用一直盯著~</p>
+        </div>
+      </div>
+    );
   }
 
   if (phase === 'done' && result) {
     return (
       <div className="form">
         <div className="card center">
-          <h1>{edit ? '✨ 作品更新成功!' : '🎉 作品發布成功!'}</h1>
-          <p>{edit ? '修改已送出' : '已加到作品集'},網站大約 1–2 分鐘後會自動更新。</p>
+          <h1>{edit ? '✨ 作品更新完成!' : '🎉 作品上線了!'}</h1>
+          <p>{doneNote ?? '網站已經更新好,點下面就能看到!'}</p>
           <div className="btnrow">
             <button className="btn" onClick={() => window.api.openExternal(result.url)}>
               看作品

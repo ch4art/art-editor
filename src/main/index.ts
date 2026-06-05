@@ -10,7 +10,7 @@ import {
   sanitizeSlug,
   type WorkInput,
 } from './content';
-import { commitFiles, type CommitFile } from './publish';
+import { commitFiles, waitForDeploy, type CommitFile } from './publish';
 import { listContent, getContentText, getContentBase64, deleteContent } from './manage';
 import { gltfpackOptimize } from './gltfpack';
 
@@ -151,8 +151,12 @@ ipcMain.handle(
         encoding: 'base64',
       });
     }
-    await commitFiles(token, files, `${post.existingPath ? '更新文章' : '文章'}:${post.title}`);
-    return { slug, path, url: `https://${gh.REPO.owner}.github.io/blog/${slug}/` };
+    const sha = await commitFiles(
+      token,
+      files,
+      `${post.existingPath ? '更新文章' : '文章'}:${post.title}`,
+    );
+    return { slug, path, sha, url: `https://${gh.REPO.owner}.github.io/blog/${slug}/` };
   },
 );
 
@@ -183,10 +187,21 @@ ipcMain.handle(
       );
     }
     files.push({ path: `src/content/works/${slug}.md`, content: md, encoding: 'utf-8' });
-    await commitFiles(token, files, `${work.existingSlug ? '更新作品' : '作品'}:${work.title}`);
-    return { slug, url: `https://${gh.REPO.owner}.github.io/portfolio/${slug}/` };
+    const sha = await commitFiles(
+      token,
+      files,
+      `${work.existingSlug ? '更新作品' : '作品'}:${work.title}`,
+    );
+    return { slug, sha, url: `https://${gh.REPO.owner}.github.io/portfolio/${slug}/` };
   },
 );
+
+// Poll the Pages deploy for a commit — resolves when the site is live.
+ipcMain.handle('publish:waitLive', async (_e, sha: string) => {
+  const token = gh.loadToken();
+  if (!token) throw new Error('尚未登入');
+  return waitForDeploy(token, sha);
+});
 
 // ---------- published-content management (list / read / delete) ----------
 ipcMain.handle('content:list', async () => {
