@@ -81,6 +81,20 @@ const api = {
       ipcRenderer.invoke('trash:restore', item),
   },
 
+  update: {
+    /** 檢查 GitHub 上有沒有新版本(公開 repo,免登入)。 */
+    check: (): Promise<{ hasUpdate: boolean; version: string; current: string; url?: string }> =>
+      ipcRenderer.invoke('update:check'),
+    /** 下載新版並交給背景程式換檔重開。 */
+    apply: (url: string): Promise<boolean> => ipcRenderer.invoke('update:apply', url),
+    /** 下載進度 0–100。回傳取消訂閱函式。 */
+    onProgress: (cb: (pct: number) => void): (() => void) => {
+      const listener = (_e: unknown, pct: number): void => cb(pct);
+      ipcRenderer.on('update:progress', listener);
+      return () => ipcRenderer.removeListener('update:progress', listener);
+    },
+  },
+
   github: {
     status: (): Promise<{ loggedIn: boolean; login?: string }> =>
       ipcRenderer.invoke('github:status'),

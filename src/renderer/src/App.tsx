@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Login from './Login';
 import Editor from './Editor';
+import UpdateBanner from './UpdateBanner';
 
 type Auth = { loading: boolean; login?: string };
 
@@ -42,27 +43,33 @@ export default function App() {
       .then((s) => setAuth({ loading: false, login: s.loggedIn ? s.login : undefined }));
   }, []);
 
+  let screen;
   if (auth.loading) {
-    return (
+    screen = (
       <div className="wrap">
         <div className="card">
           <p>載入中…</p>
         </div>
       </div>
     );
-  }
-
-  if (!auth.login) {
-    return <Login onLoggedIn={(login) => setAuth({ loading: false, login })} />;
+  } else if (!auth.login) {
+    screen = <Login onLoggedIn={(login) => setAuth({ loading: false, login })} />;
+  } else {
+    screen = (
+      <Editor
+        login={auth.login}
+        onLogout={async () => {
+          await window.api.github.logout();
+          setAuth({ loading: false, login: undefined });
+        }}
+      />
+    );
   }
 
   return (
-    <Editor
-      login={auth.login}
-      onLogout={async () => {
-        await window.api.github.logout();
-        setAuth({ loading: false, login: undefined });
-      }}
-    />
+    <>
+      <UpdateBanner />
+      {screen}
+    </>
   );
 }

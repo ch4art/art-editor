@@ -20,6 +20,7 @@ import {
   restoreContent,
 } from './manage';
 import { gltfpackOptimize } from './gltfpack';
+import { checkForUpdate, downloadAndApply } from './update';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -271,6 +272,23 @@ ipcMain.handle(
     return true;
   },
 );
+
+// ---------- 自動更新 ----------
+ipcMain.handle('update:check', async () => {
+  try {
+    return await checkForUpdate();
+  } catch (e) {
+    dlog(`update:check failed: ${e instanceof Error ? e.message : e}`);
+    return { hasUpdate: false, version: '', current: app.getVersion() };
+  }
+});
+
+ipcMain.handle('update:apply', async (event, url: string) => {
+  await downloadAndApply(url, (pct) => {
+    if (!event.sender.isDestroyed()) event.sender.send('update:progress', pct);
+  });
+  return true;
+});
 
 // ---------- lifecycle ----------
 app.whenReady().then(() => {

@@ -804,3 +804,44 @@ input[type='file'] {
   accent-color: var(--bubblegum-deep);
   vertical-align: -3px;
 }
+
+/* 自動更新橫幅 */
+.updatebar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  text-align: center;
+  font-weight: 800;
+  color: var(--ink);
+  background: linear-gradient(90deg, #ffe27a, #ff9fcb);
+  border-bottom: 3px solid var(--outline);
+  padding: 8px 14px;
+}
+
+.updatebar .ub-btn {
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  margin-left: 10px;
+  padding: 4px 14px;
+  color: #fff;
+  background: var(--bubblegum-deep);
+  border: 2.5px solid var(--outline);
+  border-radius: 9999px;
+}
+
+.updatebar .ub-btn:hover {
+  transform: translateY(-1px);
+}
+
+.updatebar .ub-x {
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  margin-left: 8px;
+  padding: 2px 9px;
+  color: var(--ink);
+  background: #fff;
+  border: 2.5px solid var(--outline);
+  border-radius: 9999px;
+}
