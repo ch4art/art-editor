@@ -57,6 +57,27 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
   return { hasUpdate, version, current, url: zip?.browser_download_url };
 }
 
+/** The swap helper: waits for THIS process to exit, then overwrites the install
+ *  folder in place (extract to temp → copy over, so a still-releasing file lock
+ *  on the folder itself isn't fatal) and relaunches. Exported so tests exercise
+ *  the exact same script that ships. Args: ProcId, Zip, Dir, Exe. */
+export function helperScript(): string {
+  return [
+    'param([int]$ProcId,[string]$Zip,[string]$Dir,[string]$Exe)',
+    'try { Wait-Process -Id $ProcId -Timeout 90 -ErrorAction SilentlyContinue } catch {}',
+    'Start-Sleep -Seconds 1',
+    'try {',
+    '  Add-Type -AssemblyName System.IO.Compression.FileSystem',
+    '  $tmp = Join-Path $env:TEMP ("cueupd-" + [guid]::NewGuid().ToString())',
+    '  [System.IO.Compression.ZipFile]::ExtractToDirectory($Zip, $tmp)',
+    '  Copy-Item -Path (Join-Path $tmp "*") -Destination $Dir -Recurse -Force',
+    '  Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue',
+    '} catch {}',
+    'Remove-Item $Zip -Force -ErrorAction SilentlyContinue',
+    'Start-Process -FilePath $Exe',
+  ].join('\r\n');
+}
+
 /** Download the new zip then hand off to a helper that swaps + relaunches. */
 export async function downloadAndApply(
   url: string,
@@ -87,25 +108,8 @@ export async function downloadAndApply(
   const exePath = app.getPath('exe');
   const appDir = join(exePath, '..');
 
-  // Helper: wait for THIS process to exit, overwrite the install in place,
-  // relaunch. Overwrite (Expand-Archive -Force) avoids deleting a folder that
-  // is still releasing file locks.
   const helper = join(tmpdir(), `cuteeditor-update-${Date.now()}.ps1`);
-  const ps = [
-    'param([int]$ProcId,[string]$Zip,[string]$Dir,[string]$Exe)',
-    'try { Wait-Process -Id $ProcId -Timeout 90 -ErrorAction SilentlyContinue } catch {}',
-    'Start-Sleep -Seconds 1',
-    'try {',
-    '  Add-Type -AssemblyName System.IO.Compression.FileSystem',
-    '  $tmp = Join-Path $env:TEMP ("cueupd-" + [guid]::NewGuid().ToString())',
-    '  [System.IO.Compression.ZipFile]::ExtractToDirectory($Zip, $tmp)',
-    '  Copy-Item -Path (Join-Path $tmp "*") -Destination $Dir -Recurse -Force',
-    '  Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue',
-    '} catch {}',
-    'Remove-Item $Zip -Force -ErrorAction SilentlyContinue',
-    'Start-Process -FilePath $Exe',
-  ].join('\r\n');
-  writeFileSync(helper, ps, 'utf8');
+  writeFileSync(helper, helperScript(), 'utf8');
 
   const child = spawn(
     'powershell.exe',
