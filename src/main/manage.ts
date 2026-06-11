@@ -4,10 +4,10 @@ import { ghApi, commitFiles, type CommitFile } from './publish';
 import { REPO } from './github';
 
 export type ContentItem = {
-  kind: 'post' | 'work';
+  kind: 'post' | 'work' | 'drawing';
   path: string; // repo path of the .md/.mdx
   name: string; // filename
-  slug: string; // filename without extension
+  slug: string; // filename without extension (drawings: folder name)
   title: string;
 };
 
@@ -35,6 +35,30 @@ export async function listContent(token: string): Promise<ContentItem[]> {
       });
     }
   }
+  // 2D 畫作:一畫一資料夾(src/content/drawings/<slug>/index.md)。
+  // 目錄可能還不存在(網站 v2 上線前)→ 安靜跳過。
+  try {
+    const dir = 'src/content/drawings';
+    const list = await ghApi(token, `/repos/${owner}/${repo}/contents/${dir}`);
+    for (const f of list as { type: string; name: string }[]) {
+      if (f.type !== 'dir') continue;
+      const path = `${dir}/${f.name}/index.md`;
+      try {
+        const text = await getContentText(token, path);
+        items.push({
+          kind: 'drawing',
+          path,
+          name: f.name,
+          slug: f.name,
+          title: parseTitle(text) || f.name,
+        });
+      } catch {
+        /* 資料夾裡沒有 index.md 就跳過 */
+      }
+    }
+  } catch {
+    /* drawings 目錄不存在 — 還沒發過畫 */
+  }
   return items;
 }
 
@@ -54,7 +78,7 @@ export async function getContentBase64(token: string, path: string, ref?: string
 
 export async function deleteContent(
   token: string,
-  item: { kind: 'post' | 'work'; path: string; title: string },
+  item: { kind: 'post' | 'work' | 'drawing'; path: string; title: string },
 ): Promise<void> {
   const files: { path: string; del: true }[] = [{ path: item.path, del: true }];
   if (item.kind === 'work') {
@@ -65,6 +89,13 @@ export async function deleteContent(
     if (model) files.push({ path: `public/models/${model}`, del: true });
     if (thumb) files.push({ path: `public/works/${thumb}`, del: true });
   }
+  if (item.kind === 'drawing') {
+    // 連同同資料夾的圖檔一起刪(image: ./art.png)。
+    const text = await getContentText(token, item.path);
+    const img = text.match(/^image:\s*\.\/(.*)$/m)?.[1]?.trim();
+    const dir = item.path.replace(/\/index\.md$/i, '');
+    if (img) files.push({ path: `${dir}/${img}`, del: true });
+  }
   await commitFiles(token, files, `刪除:${item.title}`);
 }
 
@@ -73,7 +104,7 @@ export async function deleteContent(
 // view over recent commits that removed content, with one-click restore.
 
 export type TrashItem = {
-  kind: 'post' | 'work';
+  kind: 'post' | 'work' | 'drawing';
   title: string;
   date: string; // ISO commit date
   parent: string; // commit sha holding the file contents to restore
@@ -81,7 +112,8 @@ export type TrashItem = {
   key: string;
 };
 
-const CONTENT_MD = /^src\/content\/(blog|works)\/[^/]+\.(md|mdx)$/i;
+const CONTENT_MD =
+  /^src\/content\/(blog|works)\/[^/]+\.(md|mdx)$|^src\/content\/drawings\/[^/]+\/index\.md$/i;
 
 export async function listTrash(token: string): Promise<TrashItem[]> {
   const { owner, repo } = REPO;
@@ -117,8 +149,9 @@ export async function listTrash(token: string): Promise<TrashItem[]> {
       /* title stays empty → filename below */
     }
     items.push({
-      kind: md.includes('/works/') ? 'work' : 'post',
-      title: title || md.split('/').pop()!,
+      kind: md.includes('/works/') ? 'work' : md.includes('/drawings/') ? 'drawing' : 'post',
+      // 畫作的檔名都叫 index.md — 後備標題用資料夾名才認得出來
+      title: title || (md.includes('/drawings/') ? md.split('/').slice(-2)[0] : md.split('/').pop()!),
       date: String(c.commit?.author?.date ?? ''),
       parent,
       files: removed,

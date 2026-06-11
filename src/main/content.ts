@@ -129,6 +129,45 @@ export type WorkInput = {
   order?: number;
 };
 
+// ---------- 2D 畫作(v2 網站的 drawings collection)----------
+// 一畫一資料夾:src/content/drawings/<slug>/index.md + 圖檔共置。
+// 網站 schema:title、date、image、alt 必填;其餘 optional/有預設。
+
+export type DrawingInput = {
+  title: string;
+  /** 圖片描述(無障礙 alt)。留空時自動用標題,確保 schema 永遠過。 */
+  alt: string;
+  description: string;
+  tags: string[];
+  featured: boolean;
+  /** 編輯時保留原日期(改字不該把畫頂到牆的最前面)。 */
+  date?: string; // 'YYYY-MM-DD'
+};
+
+export function drawingSlug(): string {
+  return `draw-${stamp()}`;
+}
+
+export function buildDrawing(d: DrawingInput, imageFile: string): string {
+  const now = new Date();
+  const date =
+    d.date ?? `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const tags = d.tags.length ? `[${d.tags.map((t) => yamlStr(t)).join(', ')}]` : '[]';
+
+  const lines = [
+    '---',
+    `title: ${yamlStr(d.title)}`,
+    `date: ${date}`,
+    `image: ./${imageFile}`,
+    `alt: ${yamlStr(d.alt.trim() || d.title)}`,
+  ];
+  if (d.description.trim()) lines.push(`description: ${yamlStr(d.description.trim())}`);
+  lines.push(`tags: ${tags}`);
+  if (d.featured) lines.push('featured: true');
+  lines.push('---', '');
+  return lines.join('\n');
+}
+
 export function buildWork(work: WorkInput, slug: string): string {
   const now = new Date();
   const order =

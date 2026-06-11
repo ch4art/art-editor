@@ -1,6 +1,6 @@
 {
   "name": "art-editor",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Cute desktop editor for the ch4art.github.io art blog",
   "type": "module",
   "main": "./out/main/index.js",

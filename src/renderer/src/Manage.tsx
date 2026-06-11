@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 export type ContentItem = {
-  kind: 'post' | 'work';
+  kind: 'post' | 'work' | 'drawing';
   path: string;
   name: string;
   slug: string;
@@ -9,7 +9,7 @@ export type ContentItem = {
 };
 
 type TrashItem = {
-  kind: 'post' | 'work';
+  kind: 'post' | 'work' | 'drawing';
   title: string;
   date: string;
   parent: string;
@@ -22,10 +22,12 @@ const SITE = 'https://ch4art.github.io';
 export default function Manage({
   onEditPost,
   onEditWork,
+  onEditDrawing,
   busy,
 }: {
   onEditPost: (item: ContentItem) => void;
   onEditWork: (item: ContentItem) => void;
+  onEditDrawing: (item: ContentItem) => void;
   busy: boolean;
 }) {
   const [items, setItems] = useState<ContentItem[] | null>(null);
@@ -67,7 +69,7 @@ export default function Manage({
   }, []);
 
   async function remove(item: ContentItem) {
-    const what = item.kind === 'post' ? '文章' : '作品';
+    const what = item.kind === 'post' ? '文章' : item.kind === 'work' ? '模型' : '畫作';
     if (
       !window.confirm(
         `確定要刪除${what}「${item.title}」嗎?\n(放心,之後還是可以從下面的資源回收桶撈回來)`,
@@ -102,10 +104,12 @@ export default function Manage({
   }
 
   function viewUrl(item: ContentItem): string {
-    return item.kind === 'post' ? `${SITE}/blog/${item.slug}/` : `${SITE}/portfolio/${item.slug}/`;
+    if (item.kind === 'post') return `${SITE}/blog/${item.slug}/`;
+    if (item.kind === 'drawing') return `${SITE}/gallery-2d/#${item.slug}`;
+    return `${SITE}/portfolio/${item.slug}/`;
   }
 
-  function section(kind: 'post' | 'work', heading: string) {
+  function section(kind: 'post' | 'work' | 'drawing', heading: string) {
     const list = (items ?? []).filter((x) => x.kind === kind);
     return (
       <section className="managesec">
@@ -129,7 +133,13 @@ export default function Manage({
                 <button
                   className="mini edit"
                   disabled={busy || deleting !== null}
-                  onClick={() => (kind === 'post' ? onEditPost(item) : onEditWork(item))}
+                  onClick={() =>
+                    kind === 'post'
+                      ? onEditPost(item)
+                      : kind === 'drawing'
+                        ? onEditDrawing(item)
+                        : onEditWork(item)
+                  }
                 >
                   ✏️ 編輯
                 </button>
@@ -165,7 +175,8 @@ export default function Manage({
       {items !== null && (
         <>
           {section('post', '📝 文章')}
-          {section('work', '🎨 作品')}
+          {section('drawing', '🖍️ 畫作')}
+          {section('work', '🧊 模型')}
           <p className="hint">編輯或刪除後,網站大約 1–2 分鐘會自動更新。</p>
 
           <section className="managesec trashsec">
@@ -182,7 +193,7 @@ export default function Manage({
                     <li key={t.key}>
                       <div className="mg-info">
                         <span className="mg-title">
-                          {t.kind === 'post' ? '📝' : '🎨'} {t.title}
+                          {t.kind === 'post' ? '📝' : t.kind === 'drawing' ? '🖍️' : '🧊'} {t.title}
                         </span>
                         <span className="mg-slug">
                           刪於 {t.date ? t.date.slice(0, 10).split('-').join('/') : '?'}

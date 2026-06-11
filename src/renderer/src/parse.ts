@@ -100,3 +100,26 @@ export function parseWork(src: string): ParsedWork {
     thumb: field(fm, 'thumb'),
   };
 }
+
+export type ParsedDrawing = {
+  title: string;
+  alt: string;
+  description: string;
+  date: string; // YYYY-MM-DD(編輯時保留,改字不會把畫頂到牆最前面)
+  tags: string[];
+  featured: boolean;
+  imageFile: string; // ./ 後面的檔名,如 art.png
+};
+
+export function parseDrawing(src: string): ParsedDrawing {
+  const { fm } = splitFrontmatter(src);
+  return {
+    title: unquote(field(fm, 'title')),
+    alt: unquote(field(fm, 'alt')),
+    description: unquote(field(fm, 'description')),
+    date: unquote(field(fm, 'date')).slice(0, 10),
+    tags: parseTags(field(fm, 'tags')),
+    featured: field(fm, 'featured') === 'true',
+    imageFile: field(fm, 'image').replace(/^\.\//, ''),
+  };
+}

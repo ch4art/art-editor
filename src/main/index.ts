@@ -9,6 +9,9 @@ import {
   buildWork,
   sanitizeSlug,
   type WorkInput,
+  buildDrawing,
+  drawingSlug,
+  type DrawingInput,
 } from './content';
 import { commitFiles, waitForDeploy, type CommitFile } from './publish';
 import {
@@ -221,6 +224,48 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(
+  'publish:drawing',
+  async (
+    _e,
+    d: DrawingInput & {
+      /** 新圖(base64)+ 副檔名;編輯純文字時兩者皆空。 */
+      imageBase64?: string;
+      imageExt?: string;
+      /** Set when editing — overwrite this slug instead of creating a new one. */
+      existingSlug?: string;
+      /** 原本的圖檔名(編輯時沿用;換圖且副檔名不同時刪舊檔)。 */
+      existingImage?: string;
+    },
+  ) => {
+    const token = gh.loadToken();
+    if (!token) throw new Error('尚未登入');
+    const slug = d.existingSlug ?? drawingSlug();
+    const dir = `src/content/drawings/${slug}`;
+    const hasNewImage = Boolean(d.imageBase64 && d.imageExt);
+    if (!d.existingSlug && !hasNewImage) throw new Error('缺少圖片');
+
+    const imageFile = hasNewImage ? `art.${d.imageExt}` : (d.existingImage ?? 'art.png');
+    const files: CommitFile[] = [
+      { path: `${dir}/index.md`, content: buildDrawing(d, imageFile), encoding: 'utf-8' },
+    ];
+    if (hasNewImage) {
+      files.push({ path: `${dir}/${imageFile}`, content: d.imageBase64!, encoding: 'base64' });
+      // 換圖且副檔名不同 → 舊圖會變孤兒檔,一起刪掉
+      if (d.existingImage && d.existingImage !== imageFile) {
+        files.push({ path: `${dir}/${d.existingImage}`, del: true });
+      }
+    }
+    const sha = await commitFiles(
+      token,
+      files,
+      `${d.existingSlug ? '更新畫作' : '畫作'}:${d.title}`,
+    );
+    // 畫廊燈箱支援 #slug 深連結 — 點開直接放大這張
+    return { slug, sha, url: `https://${gh.REPO.owner}.github.io/gallery-2d/#${slug}` };
+  },
+);
+
 // Poll the Pages deploy for a commit — resolves when the site is live.
 ipcMain.handle('publish:waitLive', async (_e, sha: string) => {
   const token = gh.loadToken();
@@ -249,7 +294,7 @@ ipcMain.handle('content:getBinary', async (_e, path: string) => {
 
 ipcMain.handle(
   'content:delete',
-  async (_e, item: { kind: 'post' | 'work'; path: string; title: string }) => {
+  async (_e, item: { kind: 'post' | 'work' | 'drawing'; path: string; title: string }) => {
     const token = gh.loadToken();
     if (!token) throw new Error('尚未登入');
     await deleteContent(token, item);

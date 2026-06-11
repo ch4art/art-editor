@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import PostForm, { type EditPost } from './PostForm';
 import WorkForm, { type EditWork } from './WorkForm';
+import DrawingForm, { type EditDrawing } from './DrawingForm';
 import Manage, { type ContentItem } from './Manage';
-import { parsePost, parseWork } from './parse';
+import { parsePost, parseWork, parseDrawing } from './parse';
+import { imageMime } from './image';
 
 function fromBase64(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -11,18 +13,22 @@ function fromBase64(b64: string): Uint8Array {
   return bytes;
 }
 
+type Tab = 'post' | 'work' | 'drawing' | 'manage';
+
 export default function Editor({ login, onLogout }: { login: string; onLogout: () => void }) {
-  const [tab, setTab] = useState<'post' | 'work' | 'manage'>('post');
+  const [tab, setTab] = useState<Tab>('post');
   const [editPost, setEditPost] = useState<EditPost | null>(null);
   const [editWork, setEditWork] = useState<EditWork | null>(null);
+  const [editDrawing, setEditDrawing] = useState<EditDrawing | null>(null);
   const [loadingEdit, setLoadingEdit] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Tab clicks always mean "start fresh" — editing is entered via the manage list.
-  function go(t: 'post' | 'work' | 'manage') {
+  function go(t: Tab) {
     if (t !== 'manage') {
       setEditPost(null);
       setEditWork(null);
+      setEditDrawing(null);
     }
     setLoadError(null);
     setTab(t);
@@ -46,6 +52,7 @@ export default function Editor({ login, onLogout }: { login: string; onLogout: (
         }
       }
       setEditWork(null);
+      setEditDrawing(null);
       setEditPost({
         path: item.path,
         title: p.title,
@@ -80,6 +87,7 @@ export default function Editor({ login, onLogout }: { login: string; onLogout: (
         /* 縮圖讀不到也沒關係 */
       }
       setEditPost(null);
+      setEditDrawing(null);
       setEditWork({
         slug: item.slug,
         title: w.title,
@@ -97,22 +105,67 @@ export default function Editor({ login, onLogout }: { login: string; onLogout: (
     }
   }
 
+  async function startEditDrawing(item: ContentItem) {
+    setLoadingEdit(true);
+    setLoadError(null);
+    try {
+      const text = await window.api.content.getText(item.path);
+      const d = parseDrawing(text);
+      let imageUrl: string | null = null;
+      try {
+        const dir = item.path.replace(/\/index\.md$/i, '');
+        const b64 = await window.api.content.getBinary(`${dir}/${d.imageFile}`);
+        const ext = d.imageFile.split('.').pop() || 'png';
+        imageUrl = URL.createObjectURL(
+          new Blob([fromBase64(b64) as unknown as BlobPart], { type: imageMime(ext) }),
+        );
+      } catch {
+        /* 圖讀不到也沒關係,文字仍可編輯 */
+      }
+      setEditPost(null);
+      setEditWork(null);
+      setEditDrawing({
+        slug: item.slug,
+        title: d.title,
+        alt: d.alt,
+        desc: d.description,
+        tags: d.tags.join(', '),
+        featured: d.featured,
+        date: d.date,
+        imageFile: d.imageFile,
+        imageUrl,
+      });
+      setTab('drawing');
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : '載入畫作失敗');
+    } finally {
+      setLoadingEdit(false);
+    }
+  }
+
   function backToManage() {
     setEditPost(null);
     setEditWork(null);
+    setEditDrawing(null);
     setTab('manage');
   }
 
   return (
     <div className="editor">
       <header className="topbar">
-        <span className="brand">🐣 可愛編輯器</span>
+        <span className="brand">🐭 可愛編輯器</span>
         <nav className="tabs">
           <button className={tab === 'post' ? 'tab active' : 'tab'} onClick={() => go('post')}>
             ✏️ 寫文章
           </button>
+          <button
+            className={tab === 'drawing' ? 'tab active' : 'tab'}
+            onClick={() => go('drawing')}
+          >
+            🖍️ 貼畫畫
+          </button>
           <button className={tab === 'work' ? 'tab active' : 'tab'} onClick={() => go('work')}>
-            🎨 加作品
+            🧊 加模型
           </button>
           <button className={tab === 'manage' ? 'tab active' : 'tab'} onClick={() => go('manage')}>
             📚 管理
@@ -135,6 +188,13 @@ export default function Editor({ login, onLogout }: { login: string; onLogout: (
           onDone={backToManage}
         />
       )}
+      {tab === 'drawing' && (
+        <DrawingForm
+          key={editDrawing ? `edit:${editDrawing.slug}` : 'new'}
+          edit={editDrawing ?? undefined}
+          onDone={backToManage}
+        />
+      )}
       {tab === 'work' && (
         <WorkForm
           key={editWork ? `edit:${editWork.slug}` : 'new'}
@@ -143,7 +203,12 @@ export default function Editor({ login, onLogout }: { login: string; onLogout: (
         />
       )}
       {tab === 'manage' && (
-        <Manage onEditPost={startEditPost} onEditWork={startEditWork} busy={loadingEdit} />
+        <Manage
+          onEditPost={startEditPost}
+          onEditWork={startEditWork}
+          onEditDrawing={startEditDrawing}
+          busy={loadingEdit}
+        />
       )}
     </div>
   );

@@ -52,6 +52,19 @@ const api = {
       order?: number;
     }): Promise<{ slug: string; sha: string; url: string }> =>
       ipcRenderer.invoke('publish:work', data),
+    drawing: (data: {
+      title: string;
+      alt: string;
+      description: string;
+      tags: string[];
+      featured: boolean;
+      date?: string;
+      imageBase64?: string;
+      imageExt?: string;
+      existingSlug?: string;
+      existingImage?: string;
+    }): Promise<{ slug: string; sha: string; url: string }> =>
+      ipcRenderer.invoke('publish:drawing', data),
     /** Resolves once the Pages deploy for this commit finishes (site live). */
     waitLive: (sha: string): Promise<{ ok: boolean; state: string }> =>
       ipcRenderer.invoke('publish:waitLive', sha),
@@ -60,16 +73,16 @@ const api = {
   /** Published content on GitHub: list, read, delete (for the manage tab). */
   content: {
     list: (): Promise<
-      { kind: 'post' | 'work'; path: string; name: string; slug: string; title: string }[]
+      { kind: 'post' | 'work' | 'drawing'; path: string; name: string; slug: string; title: string }[]
     > => ipcRenderer.invoke('content:list'),
     getText: (path: string): Promise<string> => ipcRenderer.invoke('content:getText', path),
     getBinary: (path: string): Promise<string> => ipcRenderer.invoke('content:getBinary', path),
-    remove: (item: { kind: 'post' | 'work'; path: string; title: string }): Promise<boolean> =>
+    remove: (item: { kind: 'post' | 'work' | 'drawing'; path: string; title: string }): Promise<boolean> =>
       ipcRenderer.invoke('content:delete', item),
     /** 資源回收桶:刪掉的內容(藏在 git 歷史裡)+ 一鍵還原。 */
     trashList: (): Promise<
       {
-        kind: 'post' | 'work';
+        kind: 'post' | 'work' | 'drawing';
         title: string;
         date: string;
         parent: string;
